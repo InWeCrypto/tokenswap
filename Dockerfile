@@ -12,4 +12,4 @@ WORKDIR /etc/inwecrypto/tokenswap
 
 EXPOSE 8000
 
-CMD ["/go/bin/eth-orders","--conf","/etc/inwecrypto/tokenswap/tokenswap.json"]
+CMD ["/go/bin/tokenswap","--conf","/etc/inwecrypto/tokenswap/tokenswap.json"]
