@@ -1,15 +1,22 @@
 package tokenswap
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/dynamicgo/config"
 	"github.com/dynamicgo/slf4go"
 	"github.com/go-xorm/xorm"
 	"github.com/inwecrypto/ethdb"
+	"github.com/inwecrypto/ethgo"
+	"github.com/inwecrypto/ethgo/erc20"
 	ethkeystore "github.com/inwecrypto/ethgo/keystore"
+	ethrpc "github.com/inwecrypto/ethgo/rpc"
+	"github.com/inwecrypto/ethgo/tx"
 	"github.com/inwecrypto/gomq"
 	"github.com/inwecrypto/neodb"
 	neokeystore "github.com/inwecrypto/neogo/keystore"
@@ -29,6 +36,7 @@ type Monitor struct {
 	tncOfETH    string
 	keyOfETH    *ethkeystore.Key
 	keyOFNEO    *neokeystore.Key
+	ethClient   *ethrpc.Client
 }
 
 // NewMonitor create new monitor
@@ -77,6 +85,7 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 		tncOfNEO:    conf.GetString("neo.tnc", ""),
 		keyOfETH:    ethKey,
 		keyOFNEO:    neoKey,
+		ethClient:   ethrpc.NewClient(conf.GetString("eth.node", "")),
 	}, nil
 }
 
@@ -315,6 +324,55 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 }
 
 func (monitor *Monitor) sendETH(order *Order) error {
+	amount, err := strconv.ParseFloat(order.Value, 64)
+
+	if err != nil {
+		monitor.ErrorF("ParseFloat err : %v", err)
+		return err
+	}
+
+	transferValue := ethgo.FromCustomerValue(big.NewFloat(float64(amount)), big.NewInt(18))
+
+	codes, err := erc20.Transfer(order.To, hex.EncodeToString(transferValue.Bytes()))
+	if err != nil {
+		monitor.ErrorF("get erc20.Transfer(%s,%f) code err: %v ", order.To, amount, err)
+		return err
+	}
+
+	gasLimits := big.NewInt(61000)
+	gasPrice := ethgo.NewValue(big.NewFloat(20), ethgo.Shannon)
+
+	nonce, err := monitor.ethClient.Nonce(monitor.keyOfETH.Address)
+	if err != nil {
+		monitor.ErrorF("get Nonce   (%s,%f)  err: %v ", order.To, amount, err)
+		return err
+	}
+
+	ntx := tx.NewTx(nonce, monitor.tncOfETH, nil, gasPrice, gasLimits, codes)
+	err = ntx.Sign(monitor.keyOfETH.PrivateKey)
+	if err != nil {
+		monitor.ErrorF("Sign  (%s,%f)  err: %v ", order.To, amount, err)
+		return err
+	}
+
+	rawtx, err := ntx.Encode()
+	if err != nil {
+		monitor.ErrorF("Encode  (%s,%f)  err: %v ", order.To, amount, err)
+		return err
+	}
+
+	tx, err := monitor.ethClient.SendRawTransaction(rawtx)
+	if err != nil {
+		monitor.ErrorF("SendRawTransaction  (%s,%f)  err: %v ", order.To, amount, err)
+		return err
+	}
+
+	monitor.InfoF("From : %s ", monitor.keyOfETH.Address)
+	monitor.InfoF("to   : %s ", order.To)
+	monitor.InfoF("value: %f ", amount)
+
+	order.OutTx = tx
+
 	return nil
 }
 

@@ -4,10 +4,11 @@ import (
 	"flag"
 	"fmt"
 
+	"tokenswap"
+
 	"github.com/dynamicgo/config"
 	"github.com/dynamicgo/slf4go"
 	"github.com/go-xorm/xorm"
-	"github.com/inwecrypto/tokenswap"
 	_ "github.com/lib/pq"
 )
 
