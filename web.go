@@ -2,6 +2,7 @@ package tokenswap
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/dynamicgo/slf4go"
 	"github.com/gin-gonic/gin"
 	"github.com/go-xorm/xorm"
+	ethkeystore "github.com/inwecrypto/ethgo/keystore"
+	neokeystore "github.com/inwecrypto/neogo/keystore"
 )
 
 type WebServer struct {
@@ -19,6 +22,8 @@ type WebServer struct {
 	db         *xorm.Engine
 	laddr      string
 	TXGenerate *snowflake.Node
+	keyOfETH   *ethkeystore.Key
+	keyOFNEO   *neokeystore.Key
 }
 
 func NewWebServer(conf *config.Config) (*WebServer, error) {
@@ -39,6 +44,18 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		engine.Use(gin.Logger())
 	}
 
+	ethKey, err := readETHKeyStore(conf, "eth.keystore", conf.GetString("eth.keystorepassword", ""))
+
+	if err != nil {
+		return nil, fmt.Errorf("create neo db engine error %s", err)
+	}
+
+	neoKey, err := readNEOKeyStore(conf, "neo.keystore", conf.GetString("neo.keystorepassword", ""))
+
+	if err != nil {
+		return nil, fmt.Errorf("create neo db engine error %s", err)
+	}
+
 	node, err := snowflake.NewNode(1)
 	if err != nil {
 		return nil, err
@@ -50,6 +67,8 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		laddr:      conf.GetString("tokenswap.webladdr", ":8000"),
 		db:         tokenswapdb,
 		TXGenerate: node,
+		keyOfETH:   ethKey,
+		keyOFNEO:   neoKey,
 	}
 
 	server.makeRouters()
@@ -109,11 +128,15 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		return
 	}
 
+	// 添加随机数,防止重放
+	r := float64(rand.Int63n(9999)+1) / 10000.0
+	amount = amount + r
+
 	order := Order{
 		TX:         server.TXGenerate.Generate().String(),
 		From:       from,
 		To:         to,
-		Value:      value,
+		Value:      fmt.Sprint(amount),
 		CreateTime: time.Now(),
 	}
 
@@ -123,5 +146,10 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, order.TX)
+	res := make(map[string]string)
+	res["TX"] = order.TX
+	res["Value"] = order.Value
+	res["Address"] = server.keyOFNEO.Address
+
+	ctx.JSON(http.StatusOK, res)
 }

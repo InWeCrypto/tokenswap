@@ -9,12 +9,23 @@ to    string     收账地址
 value int 		 数量
 
 
-成功 http status 200 : 返回该订单的txId号
+成功 http status 200 : 返回json对象
 失败 http status 4xx : 错误原因说明
 
 eg:
 请求 : http://127.0.0.1:8001/trade?from=ANyhCjypLxJTH6AsXojafVxUycfPvCdqeW&to=0x83226e522a25da60bea24ab4d16f159958d3567c&value=1032
 
+返回 : json对象
+
+{
+"TX": "976420902604378112",
+"Value": "1032.9672",
+"Address": "Ab8vffxvjaA3JKm3weBg6ChmZMSvorMoBM"
+}
+
+TX   	订单号
+Value	加了随机数后的值
+Address 付账地址 
 ```
 
 ### 获取订单信息
