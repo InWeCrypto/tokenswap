@@ -3,12 +3,11 @@ package main
 import (
 	"flag"
 
-	"tokenswap"
-
 	"github.com/dynamicgo/aliyunlog"
 	"github.com/dynamicgo/config"
 	"github.com/dynamicgo/slf4go"
 	kafka "github.com/inwecrypto/gomq-kafka"
+	"github.com/inwecrypto/tokenswap"
 	_ "github.com/lib/pq"
 )
 
