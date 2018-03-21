@@ -33,7 +33,7 @@ func main() {
 		return
 	}
 
-	if conf.GetString("slf4go.backend", "") == "slf4go" {
+	if conf.GetString("slf4go.backend", "") == "aliyun" {
 		factory, err := aliyunlog.NewAliyunBackend(conf)
 
 		if err != nil {
