@@ -77,6 +77,15 @@ func main() {
 		return
 	}
 
+	web, err := tokenswap.NewWebServer(conf)
+	if err != nil {
+		logger.ErrorF("create web server err , %s", err)
+		return
+	}
+
+	logger.InfoF("web server started.")
+	go web.Run()
+
 	monitor.Run()
 
 }
