@@ -47,7 +47,7 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 	server := &WebServer{
 		engine:     engine,
 		Logger:     slf4go.Get("tokenswap"),
-		laddr:      conf.GetString("webladdr", ":8000"),
+		laddr:      conf.GetString("tokenswap.webladdr", ":8000"),
 		db:         tokenswapdb,
 		TXGenerate: node,
 	}
@@ -70,7 +70,7 @@ func (server *WebServer) makeRouters() {
 func (server *WebServer) GetOrder(ctx *gin.Context) {
 	tx := ctx.Param("tx")
 	order := &Order{}
-	server.db.Where(` "tx" = ?`, tx).Get(order)
+	server.db.Where(` "t_x" = ?`, tx).Get(order)
 
 	ctx.JSON(http.StatusOK, order)
 }
@@ -105,4 +105,6 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	ctx.JSON(http.StatusOK, order.TX)
 }
