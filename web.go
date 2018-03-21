@@ -65,12 +65,29 @@ func (server *WebServer) Run() error {
 func (server *WebServer) makeRouters() {
 	server.engine.POST("/trade", server.CreateOrder)
 	server.engine.GET("/trade/:tx", server.GetOrder)
+	server.engine.GET("/log/:tx", server.GetOrderLog)
+}
+
+func (server *WebServer) GetOrderLog(ctx *gin.Context) {
+	tx := ctx.Param("tx")
+	logs := make([]Log, 0)
+	err := server.db.Where(` "t_x" = ?`, tx).Find(&logs)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, logs)
 }
 
 func (server *WebServer) GetOrder(ctx *gin.Context) {
 	tx := ctx.Param("tx")
 	order := &Order{}
-	server.db.Where(` "t_x" = ?`, tx).Get(order)
+	_, err := server.db.Where(` "t_x" = ?`, tx).Get(order)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, order)
 }
