@@ -424,7 +424,7 @@ func (monitor *Monitor) getOrderByToAddress(to, value string, createTime time.Ti
 	order := new(Order)
 
 	ok, err := monitor.tokenswapdb.Where(
-		`"to" = ? and "value" = ? and "create_time" < `, to, value, createTime).Get(order)
+		`"to" = ? and "value" = ? and "create_time" < ?`, to, value, createTime).Get(order)
 
 	if err != nil {
 		monitor.ErrorF("query to order(%s,%s) error, %s", to, value, err)
@@ -444,7 +444,7 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 	order := new(Order)
 
 	ok, err := monitor.tokenswapdb.Where(
-		`"from" = ? and "value" = ? and "create_time" < `, from, value, createTime).Get(order)
+		`"from" = ? and "value" = ? and "create_time" < ?`, from, value, createTime).Get(order)
 
 	if err != nil {
 		monitor.ErrorF("query from order(%s,%s) error, %s", from, value, err)
