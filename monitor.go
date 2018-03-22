@@ -21,7 +21,6 @@ import (
 	"github.com/inwecrypto/gomq"
 	"github.com/inwecrypto/neodb"
 	neokeystore "github.com/inwecrypto/neogo/keystore"
-	neotx "github.com/inwecrypto/neogo/tx"
 )
 
 const ETH_TNC_DECIAMLS = 18
@@ -239,15 +238,15 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 }
 
 func (monitor *Monitor) ParseNeoValueToCustomer(value string) (string, bool) {
-	x, b := ethmath.ParseBig256("100456476989000000")
+	x, b := ethmath.ParseUint64(value)
 	if !b {
 		monitor.ErrorF("handle tx error, parse  %s err", value)
 		return "", false
 	}
 
-	f := neotx.Fixed8(x.Int64())
+	f := float64(x) / 10000000.0
 
-	return f.String(), true
+	return fmt.Sprint(f), true
 }
 
 func (monitor *Monitor) ParseEthValueToCustomer(value string) (string, bool) {
