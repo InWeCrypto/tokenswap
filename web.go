@@ -152,11 +152,9 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	}
 	// 添加随机数,防止重放
 	r := rand.Intn(9999) + 1
-	amountReturn := float64(amount) + float64(r)/10000.0
+	amountres := float64(amount) + float64(r)/10000.0
 
-	amount = amount*10000 + r
-
-	ethValue := ethgo.FromCustomerValue(big.NewFloat(float64(amount)), big.NewInt(18))
+	ethValue := ethgo.FromCustomerValue(big.NewFloat(float64(amountres)), big.NewInt(18))
 
 	order := Order{
 		TX:         server.TXGenerate.Generate().String(),
@@ -174,7 +172,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 
 	res := make(map[string]string)
 	res["TX"] = order.TX
-	res["Value"] = fmt.Sprint(amountReturn)
+	res["Value"] = fmt.Sprint(amountres)
 	res["Address"] = server.keyOFNEO.Address
 
 	ctx.JSON(http.StatusOK, res)
