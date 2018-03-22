@@ -81,9 +81,7 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 func (server *WebServer) Run() error {
 
 	// 允许跨域
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	server.engine.Use(cors.New(config))
+	server.engine.Use(cors.Default())
 
 	return server.engine.Run(server.laddr)
 }
