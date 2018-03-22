@@ -230,18 +230,6 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	return true
 }
 
-func (monitor *Monitor) ParseNeoValueToEthValue(value string) (string, bool) {
-	x, b := ethmath.ParseUint64(value)
-	if !b {
-		monitor.ErrorF("handle tx error, parse  %s err", value)
-		return "", false
-	}
-
-	ethValue := ethgo.FromCustomerValue(big.NewFloat(float64(x)), big.NewInt(10))
-
-	return "0x" + hex.EncodeToString(ethValue.Bytes()), true
-}
-
 func (monitor *Monitor) handleETHMessage(txid string) bool {
 	//	monitor.DebugF("handle eth tx %s", txid)
 
