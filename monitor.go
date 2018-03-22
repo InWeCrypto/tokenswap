@@ -243,6 +243,7 @@ func (monitor *Monitor) ParseValueToCustomer(value string, deciamls int64) (stri
 		monitor.ErrorF("handle tx error, parse  %s err", value)
 		return "", false
 	}
+
 	d := ethgo.CustomerValue(x, big.NewInt(deciamls))
 
 	f, _ := d.Float64()
