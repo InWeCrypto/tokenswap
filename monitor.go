@@ -205,6 +205,8 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 				return false
 			}
 
+			monitor.DebugF("checked tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, value, monitor.tncOfNEO)
+
 			order, err := monitor.getOrderByFromAddress(neoTx.From, value, neoTx.CreateTime)
 
 			if err != nil {
