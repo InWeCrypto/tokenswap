@@ -15,12 +15,15 @@ import (
 	"github.com/inwecrypto/ethgo"
 	"github.com/inwecrypto/ethgo/erc20"
 	ethkeystore "github.com/inwecrypto/ethgo/keystore"
+	ethmath "github.com/inwecrypto/ethgo/math"
 	ethrpc "github.com/inwecrypto/ethgo/rpc"
 	"github.com/inwecrypto/ethgo/tx"
 	"github.com/inwecrypto/gomq"
 	"github.com/inwecrypto/neodb"
 	neokeystore "github.com/inwecrypto/neogo/keystore"
 )
+
+const ETH_TNC_DECIAMLS = 18
 
 // Monitor neo/eth tx event monitor
 type Monitor struct {
@@ -220,6 +223,17 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	return true
 }
 
+func (monitor *Monitor) ParseEthValueToCustomer(value string) (string, bool) {
+	x, b := ethmath.ParseBig256(value)
+	if !b {
+		monitor.ErrorF("handle eth tx error, parse  %s err", value)
+		return "", false
+	}
+	d := ethgo.CustomerValue(x, big.NewInt(ETH_TNC_DECIAMLS))
+
+	return fmt.Sprint(d.Float64()), true
+}
+
 func (monitor *Monitor) handleETHMessage(txid string) bool {
 	monitor.DebugF("handle eth tx %s", txid)
 
@@ -240,7 +254,12 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 	if ethTx.From == monitor.ethlockaddr && ethTx.Asset == monitor.tncOfETH {
 		// complete order
 
-		order, err := monitor.getOrderByToAddress(ethTx.To, ethTx.Value, ethTx.CreateTime)
+		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
+		if !b {
+			return false
+		}
+
+		order, err := monitor.getOrderByToAddress(ethTx.To, value, ethTx.CreateTime)
 
 		if err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
@@ -264,7 +283,12 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		return true
 
 	} else if ethTx.To == monitor.ethlockaddr && ethTx.Asset == monitor.tncOfETH {
-		order, err := monitor.getOrderByFromAddress(ethTx.From, ethTx.Value, ethTx.CreateTime)
+		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
+		if !b {
+			return false
+		}
+
+		order, err := monitor.getOrderByFromAddress(ethTx.From, value, ethTx.CreateTime)
 
 		if err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
@@ -332,7 +356,7 @@ func (monitor *Monitor) sendETH(order *Order) error {
 		return err
 	}
 
-	transferValue := ethgo.FromCustomerValue(big.NewFloat(float64(amount)), big.NewInt(18))
+	transferValue := ethgo.FromCustomerValue(big.NewFloat(float64(amount)), big.NewInt(ETH_TNC_DECIAMLS))
 
 	codes, err := erc20.Transfer(order.To, hex.EncodeToString(transferValue.Bytes()))
 	if err != nil {
