@@ -246,7 +246,7 @@ func (monitor *Monitor) ParseNeoValueToCustomer(value string) (string, bool) {
 		return "", false
 	}
 
-	f := float64(x) / 10000000.0
+	f := float64(x) / 100000000.0
 
 	return fmt.Sprint(f), true
 }
