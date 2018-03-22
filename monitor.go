@@ -120,8 +120,22 @@ func (monitor *Monitor) NEOAddress() string {
 	return monitor.keyOFNEO.Address
 }
 
-// Run .
-func (monitor *Monitor) Run() {
+func (monitor *Monitor) ethMonitor() {
+	for {
+		select {
+		case message, ok := <-monitor.ethmq.Messages():
+			if ok {
+				if monitor.handleETHMessage(string(message.Key())) {
+					monitor.ethmq.Commit(message)
+				}
+			}
+		case err := <-monitor.ethmq.Errors():
+			monitor.ErrorF("ethmq err, %s", err)
+		}
+	}
+}
+
+func (monitor *Monitor) neoMonitor() {
 	for {
 		select {
 		case message, ok := <-monitor.neomq.Messages():
@@ -130,18 +144,16 @@ func (monitor *Monitor) Run() {
 					monitor.neomq.Commit(message)
 				}
 			}
-		case message, ok := <-monitor.ethmq.Messages():
-			if ok {
-				if monitor.handleETHMessage(string(message.Key())) {
-					monitor.neomq.Commit(message)
-				}
-			}
 		case err := <-monitor.neomq.Errors():
 			monitor.ErrorF("neomq err, %s", err)
-		case err := <-monitor.ethmq.Errors():
-			monitor.ErrorF("ethmq err, %s", err)
 		}
 	}
+}
+
+// Run .
+func (monitor *Monitor) Run() {
+	go monitor.ethMonitor()
+	go monitor.neoMonitor()
 }
 
 func (monitor *Monitor) handleNEOMessage(txid string) bool {
