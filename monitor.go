@@ -17,10 +17,11 @@ import (
 	ethkeystore "github.com/inwecrypto/ethgo/keystore"
 	ethmath "github.com/inwecrypto/ethgo/math"
 	ethrpc "github.com/inwecrypto/ethgo/rpc"
-	"github.com/inwecrypto/ethgo/tx"
+	ethtx "github.com/inwecrypto/ethgo/tx"
 	"github.com/inwecrypto/gomq"
 	"github.com/inwecrypto/neodb"
 	neokeystore "github.com/inwecrypto/neogo/keystore"
+	neotx "github.com/inwecrypto/neogo/tx"
 )
 
 const ETH_TNC_DECIAMLS = 18
@@ -171,7 +172,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	for _, neoTx := range neoTxs {
 		if neoTx.From == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
 			// complete order
-			value, b := monitor.ParseValueToCustomer(neoTx.Value, 8)
+			value, b := monitor.ParseNeoValueToCustomer(neoTx.Value)
 			if !b {
 				return false
 			}
@@ -186,13 +187,13 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			log := &Log{
 				TX:         order.TX,
 				CreateTime: time.Now(),
-				Content:    fmt.Sprintf("release neo to %s -- success", neoTx.To),
+				Content:    fmt.Sprintf("release TNC to %s -- success", neoTx.To),
 			}
 
 			order.OutTx = neoTx.TX
 			order.CompletedTime = time.Now()
 
-			if err := monitor.insertLogAndUpdate(log, order, "out_tx"); err != nil {
+			if err := monitor.insertLogAndUpdate(log, order, "out_tx", "completed_time"); err != nil {
 				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
 				return false
 			}
@@ -200,7 +201,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			return true
 
 		} else if neoTx.To == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
-			value, b := monitor.ParseValueToCustomer(neoTx.Value, 8)
+			value, b := monitor.ParseNeoValueToCustomer(neoTx.Value)
 			if !b {
 				return false
 			}
@@ -217,7 +218,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			log := &Log{
 				TX:         order.TX,
 				CreateTime: time.Now(),
-				Content:    fmt.Sprintf("recv neo from %s -- success", neoTx.From),
+				Content:    fmt.Sprintf("recv TNC from %s -- success", neoTx.From),
 			}
 
 			if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
@@ -237,14 +238,26 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	return true
 }
 
-func (monitor *Monitor) ParseValueToCustomer(value string, deciamls int64) (string, bool) {
+func (monitor *Monitor) ParseNeoValueToCustomer(value string) (string, bool) {
+	x, b := ethmath.ParseBig256("100456476989000000")
+	if !b {
+		monitor.ErrorF("handle tx error, parse  %s err", value)
+		return "", false
+	}
+
+	f := neotx.Fixed8(x.Int64())
+
+	return f.String(), true
+}
+
+func (monitor *Monitor) ParseEthValueToCustomer(value string) (string, bool) {
 	x, b := ethmath.ParseBig256(value)
 	if !b {
 		monitor.ErrorF("handle tx error, parse  %s err", value)
 		return "", false
 	}
 
-	d := ethgo.CustomerValue(x, big.NewInt(deciamls))
+	d := ethgo.CustomerValue(x, big.NewInt(ETH_TNC_DECIAMLS))
 
 	f, _ := d.Float64()
 
@@ -271,7 +284,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 	if ethTx.From == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 		// complete order
 
-		value, b := monitor.ParseValueToCustomer(ethTx.Value, 18)
+		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
 		if !b {
 			return false
 		}
@@ -286,13 +299,13 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		log := &Log{
 			TX:         order.TX,
 			CreateTime: time.Now(),
-			Content:    fmt.Sprintf("release eth to %s -- success", ethTx.To),
+			Content:    fmt.Sprintf("release TNC to %s -- success", ethTx.To),
 		}
 
 		order.OutTx = ethTx.TX
 		order.CompletedTime = time.Now()
 
-		if err := monitor.insertLogAndUpdate(log, order, "out_tx"); err != nil {
+		if err := monitor.insertLogAndUpdate(log, order, "out_tx", "completed_time"); err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
 			return false
 		}
@@ -300,7 +313,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		return true
 
 	} else if ethTx.To == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
-		value, b := monitor.ParseValueToCustomer(ethTx.Value, 18)
+		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
 		if !b {
 			return false
 		}
@@ -317,7 +330,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		log := &Log{
 			TX:         order.TX,
 			CreateTime: time.Now(),
-			Content:    fmt.Sprintf("recv eth from %s -- success", ethTx.From),
+			Content:    fmt.Sprintf("recv TNC from %s -- success", ethTx.From),
 		}
 
 		if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
@@ -390,7 +403,7 @@ func (monitor *Monitor) sendETH(order *Order) error {
 		return err
 	}
 
-	ntx := tx.NewTx(nonce, monitor.tncOfETH, nil, gasPrice, gasLimits, codes)
+	ntx := ethtx.NewTx(nonce, monitor.tncOfETH, nil, gasPrice, gasLimits, codes)
 	err = ntx.Sign(monitor.keyOfETH.PrivateKey)
 	if err != nil {
 		monitor.ErrorF("Sign  (%s,%f)  err: %v ", order.To, amount, err)
@@ -409,11 +422,10 @@ func (monitor *Monitor) sendETH(order *Order) error {
 		return err
 	}
 
-	monitor.InfoF("From : %s ", monitor.keyOfETH.Address)
+	monitor.InfoF("from : %s ", monitor.keyOfETH.Address)
 	monitor.InfoF("to   : %s ", order.To)
 	monitor.InfoF("value: %f ", amount)
-
-	order.OutTx = tx
+	monitor.InfoF("tx   : %s ", tx)
 
 	return nil
 }
