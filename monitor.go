@@ -147,73 +147,71 @@ func (monitor *Monitor) Run() {
 func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	monitor.DebugF("handle neo tx %s", txid)
 
-	neoTx := new(neodb.Tx)
+	neoTxs := make([]neodb.Tx, 0)
 
-	ok, err := monitor.neodb.Where("t_x = ?", txid).Get(neoTx)
+	err := monitor.neodb.Where("t_x = ?", txid).Find(&neoTxs)
 
 	if err != nil {
 		monitor.ErrorF("handle neo tx %s error, %s", txid, err)
 		return false
 	}
 
-	if !ok {
-		monitor.WarnF("handle neo tx %s -- not found", txid)
-		return true
-	}
+	for _, neoTx := range neoTxs {
 
-	if neoTx.From == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
-		// complete order
+		if neoTx.From == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
+			// complete order
 
-		order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime)
+			order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime)
 
-		if err != nil {
-			monitor.ErrorF("handle neo tx %s error, %s", txid, err)
-			return false
+			if err != nil {
+				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				return false
+			}
+
+			log := &Log{
+				TX:         order.TX,
+				CreateTime: time.Now(),
+				Content:    fmt.Sprintf("release neo to %s -- success", neoTx.To),
+			}
+
+			order.OutTx = neoTx.TX
+			order.CompletedTime = time.Now()
+
+			if err := monitor.insertLogAndUpdate(log, order, "out_tx"); err != nil {
+				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				return false
+			}
+
+			return true
+
+		} else if neoTx.To == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
+			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime)
+
+			if err != nil {
+				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				return false
+			}
+
+			order.InTx = neoTx.TX
+
+			log := &Log{
+				TX:         order.TX,
+				CreateTime: time.Now(),
+				Content:    fmt.Sprintf("recv neo from %s -- success", neoTx.From),
+			}
+
+			if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
+				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				return false
+			}
+
+			if err := monitor.sendETH(order); err != nil {
+				monitor.ErrorF("handle neo tx %s -- send neo error %s", txid, err)
+				return false
+			}
+
+			return true
 		}
-
-		log := &Log{
-			TX:         order.TX,
-			CreateTime: time.Now(),
-			Content:    fmt.Sprintf("release neo to %s -- success", neoTx.To),
-		}
-
-		order.OutTx = neoTx.TX
-		order.CompletedTime = time.Now()
-
-		if err := monitor.insertLogAndUpdate(log, order, "out_tx"); err != nil {
-			monitor.ErrorF("handle neo tx %s error, %s", txid, err)
-			return false
-		}
-
-		return true
-
-	} else if neoTx.To == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
-		order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime)
-
-		if err != nil {
-			monitor.ErrorF("handle neo tx %s error, %s", txid, err)
-			return false
-		}
-
-		order.InTx = neoTx.TX
-
-		log := &Log{
-			TX:         order.TX,
-			CreateTime: time.Now(),
-			Content:    fmt.Sprintf("recv neo from %s -- success", neoTx.From),
-		}
-
-		if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
-			monitor.ErrorF("handle neo tx %s error, %s", txid, err)
-			return false
-		}
-
-		if err := monitor.sendETH(order); err != nil {
-			monitor.ErrorF("handle neo tx %s -- send neo error %s", txid, err)
-			return false
-		}
-
-		return true
 	}
 
 	return true
