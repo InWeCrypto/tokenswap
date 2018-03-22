@@ -179,6 +179,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 		}
 
 		order.OutTx = neoTx.TX
+		order.CompletedTime = time.Now()
 
 		if err := monitor.insertLogAndUpdate(log, order, "out_tx"); err != nil {
 			monitor.ErrorF("handle neo tx %s error, %s", txid, err)
