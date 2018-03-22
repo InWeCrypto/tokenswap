@@ -230,6 +230,13 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	return true
 }
 
+func (monitor *Monitor) parseEthValue(value string) string {
+	bigValue, _ := ethmath.ParseBig256(value)
+	v := bigValue.Int64()
+
+	return fmt.Sprint(v)
+}
+
 func (monitor *Monitor) handleETHMessage(txid string) bool {
 	//	monitor.DebugF("handle eth tx %s", txid)
 
@@ -250,7 +257,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 	if ethTx.From == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 		// complete order
 
-		order, err := monitor.getOrderByToAddress(ethTx.To, ethTx.Value, ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
+		order, err := monitor.getOrderByToAddress(ethTx.To, monitor.parseEthValue(ethTx.Value), ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 		if err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
@@ -275,7 +282,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 
 	} else if ethTx.To == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 
-		order, err := monitor.getOrderByFromAddress(ethTx.From, ethTx.Value, ethTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
+		order, err := monitor.getOrderByFromAddress(ethTx.From, monitor.parseEthValue(ethTx.Value), ethTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 		if err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
