@@ -1,7 +1,9 @@
 package tokenswap
 
 import (
+	"encoding/hex"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -13,6 +15,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-xorm/xorm"
+	"github.com/inwecrypto/ethgo"
 	ethkeystore "github.com/inwecrypto/ethgo/keystore"
 	neokeystore "github.com/inwecrypto/neogo/keystore"
 )
@@ -86,7 +89,6 @@ func (server *WebServer) Run() error {
 	config.AllowHeaders = append(config.AllowHeaders, "Authorization")
 	config.AllowHeaders = append(config.AllowHeaders, "X-Requested-With")
 	config.AllowHeaders = append(config.AllowHeaders, "ct")
-	config.AllowHeaders = append(config.AllowHeaders, "X_Requested_With")
 	config.AllowHeaders = append(config.AllowHeaders, "Lang")
 	config.AllowAllOrigins = true
 	server.engine.Use(cors.New(config))
@@ -137,7 +139,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	to := ctx.Query("to")
 	value := ctx.Query("value")
 
-	amount, err := strconv.ParseFloat(value, 64)
+	amount, err := strconv.Atoi(value)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -148,16 +150,19 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	// 添加随机数,防止重放
-	r := float64(rand.Int63n(9999)+1) / 10000.0
-	amount = amount + r
+	r := rand.Intn(9999) + 1
+	amountReturn := float64(amount) + float64(r)/10000.0
+
+	amount = amount*10000 + r
+
+	ethValue := ethgo.FromCustomerValue(big.NewFloat(float64(amount)), big.NewInt(18))
 
 	order := Order{
 		TX:         server.TXGenerate.Generate().String(),
 		From:       from,
 		To:         to,
-		Value:      fmt.Sprint(amount),
+		Value:      "0x" + hex.EncodeToString(ethValue.Bytes()),
 		CreateTime: time.Now(),
 	}
 
@@ -169,7 +174,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 
 	res := make(map[string]string)
 	res["TX"] = order.TX
-	res["Value"] = order.Value
+	res["Value"] = fmt.Sprint(amountReturn)
 	res["Address"] = server.keyOFNEO.Address
 
 	ctx.JSON(http.StatusOK, res)

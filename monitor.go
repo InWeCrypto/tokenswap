@@ -3,9 +3,9 @@ package tokenswap
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/dynamicgo/config"
@@ -176,7 +176,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 				return false
 			}
 
-			order, err := monitor.getOrderByToAddress(neoTx.To, value, neoTx.CreateTime)
+			order, err := monitor.getOrderByToAddress(neoTx.To, value, neoTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 			if err != nil {
 				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
@@ -207,7 +207,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 
 			monitor.DebugF("checked tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, value, monitor.tncOfNEO)
 
-			order, err := monitor.getOrderByFromAddress(neoTx.From, value, neoTx.CreateTime)
+			order, err := monitor.getOrderByFromAddress(neoTx.From, value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 			if err != nil {
 				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
@@ -246,23 +246,9 @@ func (monitor *Monitor) ParseNeoValueToCustomer(value string) (string, bool) {
 		return "", false
 	}
 
-	f := float64(x) / 100000000.0
+	ethValue := ethgo.FromCustomerValue(big.NewFloat(float64(x)), big.NewInt(10))
 
-	return fmt.Sprint(f), true
-}
-
-func (monitor *Monitor) ParseEthValueToCustomer(value string) (string, bool) {
-	x, b := ethmath.ParseBig256(value)
-	if !b {
-		monitor.ErrorF("handle tx error, parse  %s err", value)
-		return "", false
-	}
-
-	d := ethgo.CustomerValue(x, big.NewInt(ETH_TNC_DECIAMLS))
-
-	f, _ := d.Float64()
-
-	return fmt.Sprint(f), true
+	return "0x" + hex.EncodeToString(ethValue.Bytes()), true
 }
 
 func (monitor *Monitor) handleETHMessage(txid string) bool {
@@ -285,12 +271,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 	if ethTx.From == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 		// complete order
 
-		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
-		if !b {
-			return false
-		}
-
-		order, err := monitor.getOrderByToAddress(ethTx.To, value, ethTx.CreateTime)
+		order, err := monitor.getOrderByToAddress(ethTx.To, ethTx.Value, ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 		if err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
@@ -314,12 +295,8 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		return true
 
 	} else if ethTx.To == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
-		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
-		if !b {
-			return false
-		}
 
-		order, err := monitor.getOrderByFromAddress(ethTx.From, value, ethTx.CreateTime)
+		order, err := monitor.getOrderByFromAddress(ethTx.From, ethTx.Value, ethTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 		if err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
@@ -380,18 +357,10 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 }
 
 func (monitor *Monitor) sendETH(order *Order) error {
-	amount, err := strconv.ParseFloat(order.Value, 64)
 
+	codes, err := erc20.Transfer(order.To, order.Value)
 	if err != nil {
-		monitor.ErrorF("ParseFloat err : %v", err)
-		return err
-	}
-
-	transferValue := ethgo.FromCustomerValue(big.NewFloat(float64(amount)), big.NewInt(ETH_TNC_DECIAMLS))
-
-	codes, err := erc20.Transfer(order.To, hex.EncodeToString(transferValue.Bytes()))
-	if err != nil {
-		monitor.ErrorF("get erc20.Transfer(%s,%f) code err: %v ", order.To, amount, err)
+		monitor.ErrorF("get erc20.Transfer(%s,%f) code err: %v ", order.To, order.Value, err)
 		return err
 	}
 
@@ -400,44 +369,48 @@ func (monitor *Monitor) sendETH(order *Order) error {
 
 	nonce, err := monitor.ethClient.Nonce(monitor.keyOfETH.Address)
 	if err != nil {
-		monitor.ErrorF("get Nonce   (%s,%f)  err: %v ", order.To, amount, err)
+		monitor.ErrorF("get Nonce   (%s,%f)  err: %v ", order.To, order.Value, err)
 		return err
 	}
 
 	ntx := ethtx.NewTx(nonce, monitor.tncOfETH, nil, gasPrice, gasLimits, codes)
 	err = ntx.Sign(monitor.keyOfETH.PrivateKey)
 	if err != nil {
-		monitor.ErrorF("Sign  (%s,%f)  err: %v ", order.To, amount, err)
+		monitor.ErrorF("Sign  (%s,%f)  err: %v ", order.To, order.Value, err)
 		return err
 	}
 
 	rawtx, err := ntx.Encode()
 	if err != nil {
-		monitor.ErrorF("Encode  (%s,%f)  err: %v ", order.To, amount, err)
+		monitor.ErrorF("Encode  (%s,%f)  err: %v ", order.To, order.Value, err)
 		return err
 	}
 
 	tx, err := monitor.ethClient.SendRawTransaction(rawtx)
 	if err != nil {
-		monitor.ErrorF("SendRawTransaction  (%s,%f)  err: %v ", order.To, amount, err)
+		monitor.ErrorF("SendRawTransaction  (%s,%f)  err: %v ", order.To, order.Value, err)
 		return err
 	}
 
 	monitor.InfoF("from : %s ", monitor.keyOfETH.Address)
 	monitor.InfoF("to   : %s ", order.To)
-	monitor.InfoF("value: %f ", amount)
+	monitor.InfoF("value: %f ", order.Value)
 	monitor.InfoF("tx   : %s ", tx)
 
 	return nil
 }
 
 // getOrder .
-func (monitor *Monitor) getOrderByToAddress(to, value string, createTime time.Time) (*Order, error) {
+func (monitor *Monitor) getOrderByToAddress(to, value string, createTime time.Time, where string) (*Order, error) {
 
 	order := new(Order)
 
+	if where != "" {
+		where = " and " + where
+	}
+
 	ok, err := monitor.tokenswapdb.Where(
-		`"to" = ? and "value" = ? and "create_time" < ?`, to, value, createTime).Get(order)
+		`"to" = ? and "value" = ? and "create_time" < ?  `+where, to, value, createTime).Get(order)
 
 	if err != nil {
 		monitor.ErrorF("query to order(%s,%s) error, %s", to, value, err)
@@ -446,18 +419,22 @@ func (monitor *Monitor) getOrderByToAddress(to, value string, createTime time.Ti
 
 	if !ok {
 		monitor.ErrorF("query to order(%s,%s) not found", to, value)
-		return nil, nil
+		return nil, errors.New("not found")
 	}
 
 	return order, nil
 }
 
-func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime time.Time) (*Order, error) {
+func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime time.Time, where string) (*Order, error) {
 
 	order := new(Order)
 
+	if where != "" {
+		where = " and " + where
+	}
+
 	ok, err := monitor.tokenswapdb.Where(
-		`"from" = ? and "value" = ? and "create_time" < ?`, from, value, createTime).Get(order)
+		`"from" = ? and "value" = ? and "create_time" < ? `+where, from, value, createTime).Get(order)
 
 	if err != nil {
 		monitor.ErrorF("query from order(%s,%s) error, %s", from, value, err)
@@ -466,7 +443,7 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 
 	if !ok {
 		monitor.ErrorF("query from order(%s,%s) not found", from, value)
-		return nil, nil
+		return nil, errors.New("not found")
 	}
 
 	return order, nil
