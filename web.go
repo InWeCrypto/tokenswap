@@ -1,9 +1,7 @@
 package tokenswap
 
 import (
-	"encoding/hex"
 	"fmt"
-	"math/big"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -15,9 +13,9 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-xorm/xorm"
-	"github.com/inwecrypto/ethgo"
 	ethkeystore "github.com/inwecrypto/ethgo/keystore"
 	neokeystore "github.com/inwecrypto/neogo/keystore"
+	neotx "github.com/inwecrypto/neogo/tx"
 )
 
 type WebServer struct {
@@ -154,15 +152,13 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	r := rand.Intn(9999) + 1
 	amountres := float64(amount) + float64(r)/10000.0
 
-	amount = amount*10000 + r
-
-	ethValue := ethgo.FromCustomerValue(big.NewFloat(float64(amount)), big.NewInt(14))
+	fx8value := neotx.MakeFixed8(amountres)
 
 	order := Order{
 		TX:         server.TXGenerate.Generate().String(),
 		From:       from,
 		To:         to,
-		Value:      "0x" + hex.EncodeToString(ethValue.Bytes()),
+		Value:      fmt.Sprint(int64(fx8value)),
 		CreateTime: time.Now(),
 	}
 

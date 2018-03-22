@@ -23,7 +23,7 @@ import (
 	neokeystore "github.com/inwecrypto/neogo/keystore"
 )
 
-const ETH_TNC_DECIAMLS = 18
+const ETH_TNC_DECIAMLS = 8
 
 // Monitor neo/eth tx event monitor
 type Monitor struct {
@@ -170,13 +170,8 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 
 	for _, neoTx := range neoTxs {
 		if neoTx.From == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
-			// complete order
-			value, b := monitor.ParseNeoValueToCustomer(neoTx.Value)
-			if !b {
-				return false
-			}
 
-			order, err := monitor.getOrderByToAddress(neoTx.To, value, neoTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
+			order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 			if err != nil {
 				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
@@ -200,14 +195,10 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			return true
 
 		} else if neoTx.To == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
-			value, b := monitor.ParseNeoValueToCustomer(neoTx.Value)
-			if !b {
-				return false
-			}
 
-			monitor.DebugF("checked tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, value, monitor.tncOfNEO)
+			monitor.DebugF("checked tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
 
-			order, err := monitor.getOrderByFromAddress(neoTx.From, value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
+			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 			if err != nil {
 				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
@@ -239,7 +230,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	return true
 }
 
-func (monitor *Monitor) ParseNeoValueToCustomer(value string) (string, bool) {
+func (monitor *Monitor) ParseNeoValueToEthValue(value string) (string, bool) {
 	x, b := ethmath.ParseUint64(value)
 	if !b {
 		monitor.ErrorF("handle tx error, parse  %s err", value)
@@ -358,7 +349,15 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 
 func (monitor *Monitor) sendETH(order *Order) error {
 
-	codes, err := erc20.Transfer(order.To, order.Value)
+	amount, b := ethmath.ParseUint64(order.Value)
+	if !b {
+		monitor.ErrorF("ParseUint64  %s  err  ", order.Value)
+		return errors.New("ParseUint64 err")
+	}
+
+	transferValue := big.NewInt(int64(amount))
+
+	codes, err := erc20.Transfer(order.To, hex.EncodeToString(transferValue.Bytes()))
 	if err != nil {
 		monitor.ErrorF("get erc20.Transfer(%s,%f) code err: %v ", order.To, order.Value, err)
 		return err
