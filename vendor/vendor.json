@@ -17,6 +17,13 @@
 			"revisionTime": "2018-03-16T16:28:37Z"
 		},
 		{
+			"checksumSHA1": "qj/5CGiF+Dsd1/gzKl+8hQ5ByHU=",
+			"origin": "github.com/inwecrypto/neogo/vendor/github.com/apisit/rfc6979",
+			"path": "github.com/apisit/rfc6979",
+			"revision": "4fb3539db04cdd7ce1dc4f1fdbc3220ef04da181",
+			"revisionTime": "2018-03-19T07:25:14Z"
+		},
+		{
 			"checksumSHA1": "3V/mWSKTBmzzOKS+m19pAPEzW2U=",
 			"origin": "github.com/inwecrypto/gomq-kafka/vendor/github.com/bsm/sarama-cluster",
 			"path": "github.com/bsm/sarama-cluster",
@@ -245,6 +252,13 @@
 			"tree": true
 		},
 		{
+			"checksumSHA1": "RROIAUNEsm4vOuHEDwi76eK/TJ4=",
+			"origin": "github.com/inwecrypto/neogo/vendor/github.com/inwecrypto/jsonrpc",
+			"path": "github.com/inwecrypto/jsonrpc",
+			"revision": "4fb3539db04cdd7ce1dc4f1fdbc3220ef04da181",
+			"revisionTime": "2018-03-19T07:25:14Z"
+		},
+		{
 			"checksumSHA1": "qKe/OzkcXSVrsb/6DvlXzSjojzU=",
 			"origin": "github.com/inwecrypto/ethgo/vendor/github.com/inwecrypto/keystore",
 			"path": "github.com/inwecrypto/keystore",
@@ -264,8 +278,20 @@
 			"revisionTime": "2018-03-19T07:25:14Z"
 		},
 		{
+			"checksumSHA1": "+bfCDfcWJFCKLIVLXBIzTSA5nvE=",
+			"path": "github.com/inwecrypto/neogo/rpc",
+			"revision": "4fb3539db04cdd7ce1dc4f1fdbc3220ef04da181",
+			"revisionTime": "2018-03-19T07:25:14Z"
+		},
+		{
 			"checksumSHA1": "MjiCvY82zGSp8VYzUGasYySUHqc=",
 			"path": "github.com/inwecrypto/neogo/script",
+			"revision": "4fb3539db04cdd7ce1dc4f1fdbc3220ef04da181",
+			"revisionTime": "2018-03-19T07:25:14Z"
+		},
+		{
+			"checksumSHA1": "TZNRAoT/FtQc6+kJ4KrTzQFQlFQ=",
+			"path": "github.com/inwecrypto/neogo/tx",
 			"revision": "4fb3539db04cdd7ce1dc4f1fdbc3220ef04da181",
 			"revisionTime": "2018-03-19T07:25:14Z"
 		},
