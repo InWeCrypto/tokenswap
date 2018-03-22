@@ -33,8 +33,6 @@ type Monitor struct {
 	tokenswapdb *xorm.Engine
 	ethdb       *xorm.Engine
 	neodb       *xorm.Engine
-	neolockaddr string
-	ethlockaddr string
 	tncOfNEO    string
 	tncOfETH    string
 	keyOfETH    *ethkeystore.Key
@@ -82,8 +80,6 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 		tokenswapdb: tokenswapdb,
 		ethdb:       ethdb,
 		neodb:       neodb,
-		neolockaddr: conf.GetString("tokenswap.neolockaddr", "xxxx"),
-		ethlockaddr: conf.GetString("tokenswap.ethlockaddr", "xxxx"),
 		tncOfETH:    conf.GetString("eth.tnc", ""),
 		tncOfNEO:    conf.GetString("neo.tnc", ""),
 		keyOfETH:    ethKey,
@@ -165,7 +161,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 		return true
 	}
 
-	if neoTx.From == monitor.neolockaddr && neoTx.Asset == monitor.tncOfNEO {
+	if neoTx.From == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
 		// complete order
 
 		order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime)
@@ -191,7 +187,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 
 		return true
 
-	} else if neoTx.To == monitor.neolockaddr && neoTx.Asset == monitor.tncOfNEO {
+	} else if neoTx.To == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
 		order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime)
 
 		if err != nil {
@@ -251,7 +247,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		return true
 	}
 
-	if ethTx.From == monitor.ethlockaddr && ethTx.Asset == monitor.tncOfETH {
+	if ethTx.From == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 		// complete order
 
 		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
@@ -282,7 +278,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 
 		return true
 
-	} else if ethTx.To == monitor.ethlockaddr && ethTx.Asset == monitor.tncOfETH {
+	} else if ethTx.To == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
 		if !b {
 			return false

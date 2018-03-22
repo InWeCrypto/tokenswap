@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"github.com/dynamicgo/config"
 	"github.com/dynamicgo/slf4go"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-xorm/xorm"
 	ethkeystore "github.com/inwecrypto/ethgo/keystore"
@@ -78,6 +79,12 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 
 // Run run http service
 func (server *WebServer) Run() error {
+
+	// 允许跨域
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	server.engine.Use(cors.New(config))
+
 	return server.engine.Run(server.laddr)
 }
 
@@ -88,7 +95,6 @@ func (server *WebServer) makeRouters() {
 }
 
 func (server *WebServer) GetOrderLog(ctx *gin.Context) {
-	ctx.Header("Access-Control-Allow-Origin", "*")
 	tx := ctx.Param("tx")
 	logs := make([]Log, 0)
 	err := server.db.Where(` "t_x" = ?`, tx).Find(&logs)
@@ -101,7 +107,6 @@ func (server *WebServer) GetOrderLog(ctx *gin.Context) {
 }
 
 func (server *WebServer) GetOrder(ctx *gin.Context) {
-	ctx.Header("Access-Control-Allow-Origin", "*")
 	tx := ctx.Param("tx")
 	order := &Order{}
 	_, err := server.db.Where(` "t_x" = ?`, tx).Get(order)
@@ -114,7 +119,6 @@ func (server *WebServer) GetOrder(ctx *gin.Context) {
 }
 
 func (server *WebServer) CreateOrder(ctx *gin.Context) {
-	ctx.Header("Access-Control-Allow-Origin", "*")
 	from := ctx.Query("from")
 	to := ctx.Query("to")
 	value := ctx.Query("value")

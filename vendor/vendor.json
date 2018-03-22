@@ -97,6 +97,12 @@
 			"revisionTime": "2018-03-16T16:28:37Z"
 		},
 		{
+			"checksumSHA1": "8682CypcUWdUlGSK8C2DGB/CcTk=",
+			"path": "github.com/gin-contrib/cors",
+			"revision": "df6cfb7ff4a38d694dfebd0868ecb3e956171366",
+			"revisionTime": "2018-02-25T15:46:31Z"
+		},
+		{
 			"checksumSHA1": "QeKwBtN2df+j+4stw3bQJ6yO4EY=",
 			"path": "github.com/gin-contrib/sse",
 			"revision": "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae",
@@ -349,6 +355,12 @@
 			"path": "golang.org/x/crypto/scrypt",
 			"revision": "a6c557be53b537dafb1c417dab68c58edf1e5f6b",
 			"revisionTime": "2018-03-08T09:10:26Z"
+		},
+		{
+			"checksumSHA1": "tyXdQ4OdVQelQdsil6fXUtKKIRw=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "35ef4487ce0a1ea5d4b616ffe71e34febe723695",
+			"revisionTime": "2017-07-27T13:28:57Z"
 		},
 		{
 			"checksumSHA1": "P/k5ZGf0lEBgpKgkwy++F7K1PSg=",
