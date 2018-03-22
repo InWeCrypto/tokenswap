@@ -93,6 +93,9 @@ func (server *WebServer) makeRouters() {
 }
 
 func (server *WebServer) GetOrderLog(ctx *gin.Context) {
+	ctx.Header("Access-Control-Allow-Origin", "*")
+	ctx.Header("access-control-allow-headers", "Content-Type, Accept, Authorization, X-Requested-With, ct, Origin, X_Requested_With, Lang")
+
 	tx := ctx.Param("tx")
 	logs := make([]Log, 0)
 	err := server.db.Where(` "t_x" = ?`, tx).Find(&logs)
@@ -105,6 +108,9 @@ func (server *WebServer) GetOrderLog(ctx *gin.Context) {
 }
 
 func (server *WebServer) GetOrder(ctx *gin.Context) {
+	ctx.Header("Access-Control-Allow-Origin", "*")
+	ctx.Header("access-control-allow-headers", "Content-Type, Accept, Authorization, X-Requested-With, ct, Origin, X_Requested_With, Lang")
+
 	tx := ctx.Param("tx")
 	order := &Order{}
 	_, err := server.db.Where(` "t_x" = ?`, tx).Get(order)
@@ -112,11 +118,13 @@ func (server *WebServer) GetOrder(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	ctx.JSON(http.StatusOK, order)
 }
 
 func (server *WebServer) CreateOrder(ctx *gin.Context) {
+	ctx.Header("Access-Control-Allow-Origin", "*")
+	ctx.Header("access-control-allow-headers", "Content-Type, Accept, Authorization, X-Requested-With, ct, Origin, X_Requested_With, Lang")
+
 	from := ctx.Query("from")
 	to := ctx.Query("to")
 	value := ctx.Query("value")
