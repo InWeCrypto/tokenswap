@@ -157,11 +157,11 @@ func (monitor *Monitor) Run() {
 }
 
 func (monitor *Monitor) handleNEOMessage(txid string) bool {
-	monitor.DebugF("handle neo tx %s", txid)
+	//	monitor.DebugF("handle neo tx %s", txid)
 
 	neoTxs := make([]neodb.Tx, 0)
 
-	err := monitor.neodb.Where("t_x = ?", txid).Find(&neoTxs)
+	err := monitor.neodb.Where(` "t_x" = ?`, txid).Find(&neoTxs)
 
 	if err != nil {
 		monitor.ErrorF("handle neo tx %s error, %s", txid, err)
@@ -169,11 +169,14 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	}
 
 	for _, neoTx := range neoTxs {
-
 		if neoTx.From == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
 			// complete order
+			value, b := monitor.ParseValueToCustomer(neoTx.Value)
+			if !b {
+				return false
+			}
 
-			order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime)
+			order, err := monitor.getOrderByToAddress(neoTx.To, value, neoTx.CreateTime)
 
 			if err != nil {
 				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
@@ -197,7 +200,12 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			return true
 
 		} else if neoTx.To == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
-			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime)
+			value, b := monitor.ParseValueToCustomer(neoTx.Value)
+			if !b {
+				return false
+			}
+
+			order, err := monitor.getOrderByFromAddress(neoTx.From, value, neoTx.CreateTime)
 
 			if err != nil {
 				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
@@ -229,10 +237,10 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	return true
 }
 
-func (monitor *Monitor) ParseEthValueToCustomer(value string) (string, bool) {
+func (monitor *Monitor) ParseValueToCustomer(value string) (string, bool) {
 	x, b := ethmath.ParseBig256(value)
 	if !b {
-		monitor.ErrorF("handle eth tx error, parse  %s err", value)
+		monitor.ErrorF("handle tx error, parse  %s err", value)
 		return "", false
 	}
 	d := ethgo.CustomerValue(x, big.NewInt(ETH_TNC_DECIAMLS))
@@ -241,7 +249,7 @@ func (monitor *Monitor) ParseEthValueToCustomer(value string) (string, bool) {
 }
 
 func (monitor *Monitor) handleETHMessage(txid string) bool {
-	monitor.DebugF("handle eth tx %s", txid)
+	//	monitor.DebugF("handle eth tx %s", txid)
 
 	ethTx := new(ethdb.TableTx)
 
@@ -260,7 +268,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 	if ethTx.From == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 		// complete order
 
-		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
+		value, b := monitor.ParseValueToCustomer(ethTx.Value)
 		if !b {
 			return false
 		}
@@ -289,7 +297,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		return true
 
 	} else if ethTx.To == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
-		value, b := monitor.ParseEthValueToCustomer(ethTx.Value)
+		value, b := monitor.ParseValueToCustomer(ethTx.Value)
 		if !b {
 			return false
 		}
@@ -339,7 +347,7 @@ func (monitor *Monitor) insertLogAndUpdate(log *Log, order *Order, cls ...string
 		return err
 	}
 
-	_, err = session.Where("t_x = ?", order.TX).Cols(cls...).Update(order)
+	_, err = session.Where(` "t_x" = ?`, order.TX).Cols(cls...).Update(order)
 
 	if err != nil {
 		session.Rollback()
@@ -416,12 +424,12 @@ func (monitor *Monitor) getOrderByToAddress(to, value string, createTime time.Ti
 		`"to" = ? and "value" = ? and "create_time" < `, to, value, createTime).Get(order)
 
 	if err != nil {
-		monitor.ErrorF("query order(,%s,%s) error, %s", to, value, err)
+		monitor.ErrorF("query to order(%s,%s) error, %s", to, value, err)
 		return nil, err
 	}
 
 	if !ok {
-		monitor.ErrorF("query order(,%s,%s) not found", to, value)
+		monitor.ErrorF("query to order(%s,%s) not found", to, value)
 		return nil, nil
 	}
 
@@ -436,12 +444,12 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 		`"from" = ? and "value" = ? and "create_time" < `, from, value, createTime).Get(order)
 
 	if err != nil {
-		monitor.ErrorF("query order(%s,,%s) error, %s", from, value, err)
+		monitor.ErrorF("query from order(%s,%s) error, %s", from, value, err)
 		return nil, err
 	}
 
 	if !ok {
-		monitor.ErrorF("query order(%s,,%s) not found", from, value)
+		monitor.ErrorF("query from order(%s,%s) not found", from, value)
 		return nil, nil
 	}
 
