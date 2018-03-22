@@ -171,7 +171,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	for _, neoTx := range neoTxs {
 		if neoTx.From == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
 			// complete order
-			value, b := monitor.ParseValueToCustomer(neoTx.Value)
+			value, b := monitor.ParseValueToCustomer(neoTx.Value, 8)
 			if !b {
 				return false
 			}
@@ -200,7 +200,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			return true
 
 		} else if neoTx.To == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
-			value, b := monitor.ParseValueToCustomer(neoTx.Value)
+			value, b := monitor.ParseValueToCustomer(neoTx.Value, 8)
 			if !b {
 				return false
 			}
@@ -237,15 +237,17 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	return true
 }
 
-func (monitor *Monitor) ParseValueToCustomer(value string) (string, bool) {
+func (monitor *Monitor) ParseValueToCustomer(value string, deciamls int64) (string, bool) {
 	x, b := ethmath.ParseBig256(value)
 	if !b {
 		monitor.ErrorF("handle tx error, parse  %s err", value)
 		return "", false
 	}
-	d := ethgo.CustomerValue(x, big.NewInt(ETH_TNC_DECIAMLS))
+	d := ethgo.CustomerValue(x, big.NewInt(deciamls))
 
-	return fmt.Sprint(d.Float64()), true
+	f, _ := d.Float64()
+
+	return fmt.Sprint(f), true
 }
 
 func (monitor *Monitor) handleETHMessage(txid string) bool {
@@ -268,7 +270,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 	if ethTx.From == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 		// complete order
 
-		value, b := monitor.ParseValueToCustomer(ethTx.Value)
+		value, b := monitor.ParseValueToCustomer(ethTx.Value, 18)
 		if !b {
 			return false
 		}
@@ -297,7 +299,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		return true
 
 	} else if ethTx.To == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
-		value, b := monitor.ParseValueToCustomer(ethTx.Value)
+		value, b := monitor.ParseValueToCustomer(ethTx.Value, 18)
 		if !b {
 			return false
 		}
