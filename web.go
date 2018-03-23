@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
@@ -156,7 +157,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	order := Order{
 		TX:         server.TXGenerate.Generate().String(),
 		From:       from,
-		To:         to,
+		To:         strings.ToLower(to),
 		Value:      fmt.Sprint(int64(fx8value)),
 		CreateTime: time.Now(),
 	}
