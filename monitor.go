@@ -181,7 +181,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			log := &Log{
 				TX:         order.TX,
 				CreateTime: time.Now(),
-				Content:    fmt.Sprintf("release TNC to %s -- success", neoTx.To),
+				Content:    fmt.Sprintf("release TNC to %s success, tx: %s", neoTx.To, txid),
 			}
 
 			order.OutTx = neoTx.TX
@@ -210,7 +210,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			log := &Log{
 				TX:         order.TX,
 				CreateTime: time.Now(),
-				Content:    fmt.Sprintf("recv TNC from %s -- success", neoTx.From),
+				Content:    fmt.Sprintf("recv TNC from %s success, tx: %s", neoTx.From, txid),
 			}
 
 			if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
@@ -269,7 +269,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		log := &Log{
 			TX:         order.TX,
 			CreateTime: time.Now(),
-			Content:    fmt.Sprintf("release TNC to %s -- success", ethTx.To),
+			Content:    fmt.Sprintf("release TNC to %s success, tx: %s", ethTx.To, txid),
 		}
 
 		order.OutTx = ethTx.TX
@@ -296,7 +296,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		log := &Log{
 			TX:         order.TX,
 			CreateTime: time.Now(),
-			Content:    fmt.Sprintf("recv TNC from %s -- success", ethTx.From),
+			Content:    fmt.Sprintf("recv TNC from %s success, tx: %s", ethTx.From, txid),
 		}
 
 		if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
