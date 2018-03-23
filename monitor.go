@@ -196,7 +196,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 
 		} else if neoTx.To == monitor.keyOFNEO.Address && neoTx.Asset == monitor.tncOfNEO {
 
-			monitor.DebugF("checked tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
+			monitor.DebugF("checked neo tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
 
 			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
@@ -256,8 +256,10 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 
 	if ethTx.From == monitor.keyOfETH.Address && ethTx.Asset == monitor.tncOfETH {
 		// complete order
+		value := monitor.parseEthValue(ethTx.Value)
+		monitor.DebugF("checked eth tx  from:%s  to:%s  value:%s  asset:%s", ethTx.From, ethTx.To, value, monitor.tncOfETH)
 
-		order, err := monitor.getOrderByToAddress(ethTx.To, monitor.parseEthValue(ethTx.Value), ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
+		order, err := monitor.getOrderByToAddress(ethTx.To, value, ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 		if err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
