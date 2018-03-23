@@ -139,7 +139,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	to := ctx.Query("to")
 	value := ctx.Query("value")
 
-	amount, err := strconv.Atoi(value)
+	amount, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
