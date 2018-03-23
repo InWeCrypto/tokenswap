@@ -35,16 +35,8 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		return nil, fmt.Errorf("create tokenswap db engine error %s", err)
 	}
 
-	if !conf.GetBool("meshnode.debug", true) {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
 	engine := gin.New()
 	engine.Use(gin.Recovery())
-
-	if conf.GetBool("meshnode.debug", true) {
-		engine.Use(gin.Logger())
-	}
 
 	ethKey, err := readETHKeyStore(conf, "eth.keystore", conf.GetString("eth.keystorepassword", ""))
 
@@ -65,7 +57,7 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 
 	server := &WebServer{
 		engine:     engine,
-		Logger:     slf4go.Get("tokenswap"),
+		Logger:     slf4go.Get("tokenswap-gin"),
 		laddr:      conf.GetString("tokenswap.webladdr", ":8000"),
 		db:         tokenswapdb,
 		TXGenerate: node,
@@ -73,9 +65,18 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		keyOFNEO:   neoKey,
 	}
 
+	// gin log write to backend
+	server.engine.Use(gin.LoggerWithWriter(server))
+
 	server.makeRouters()
 
 	return server, nil
+}
+
+// implement of io.writer
+func (server *WebServer) Write(p []byte) (n int, err error) {
+	server.Info(string(p))
+	return len(p), nil
 }
 
 // Run run http service
