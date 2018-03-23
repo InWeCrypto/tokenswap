@@ -174,7 +174,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 			if err != nil {
-				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				monitor.ErrorF("handle order in neo tx %s error, %s", txid, err)
 				return false
 			}
 
@@ -201,7 +201,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 			if err != nil {
-				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				monitor.ErrorF("handle order in neo tx %s error, %s", txid, err)
 				return false
 			}
 
@@ -262,7 +262,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		order, err := monitor.getOrderByToAddress(ethTx.To, value, ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 		if err != nil {
-			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
+			monitor.ErrorF("handle order in eth tx %s error, %s", txid, err)
 			return false
 		}
 
@@ -287,7 +287,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		order, err := monitor.getOrderByFromAddress(ethTx.From, monitor.parseEthValue(ethTx.Value), ethTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 		if err != nil {
-			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
+			monitor.ErrorF("handle order in eth tx  %s error, %s", txid, err)
 			return false
 		}
 
@@ -409,12 +409,12 @@ func (monitor *Monitor) getOrderByToAddress(to, value string, createTime time.Ti
 		`"to" = ? and "value" = ? and "create_time" < ?  `+where, to, value, createTime).Get(order)
 
 	if err != nil {
-		monitor.ErrorF("query to order(%s,%s) error, %s", to, value, err)
+		monitor.ErrorF("query to order(%s,%s,%s) error, %s", to, value, where, err)
 		return nil, err
 	}
 
 	if !ok {
-		monitor.ErrorF("query to order(%s,%s) not found", to, value)
+		monitor.ErrorF("query to order(%s,%s,%s) not found", to, value, where)
 		return nil, errors.New("not found")
 	}
 
@@ -433,12 +433,12 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 		`"from" = ? and "value" = ? and "create_time" < ? `+where, from, value, createTime).Get(order)
 
 	if err != nil {
-		monitor.ErrorF("query from order(%s,%s) error, %s", from, value, err)
+		monitor.ErrorF("query from order(%s,%s,%s) error, %s", from, value, where, err)
 		return nil, err
 	}
 
 	if !ok {
-		monitor.ErrorF("query from order(%s,%s) not found", from, value)
+		monitor.ErrorF("query from order(%s,%s,%s) not found", from, value, where)
 		return nil, errors.New("not found")
 	}
 
