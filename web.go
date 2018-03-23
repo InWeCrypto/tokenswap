@@ -146,7 +146,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 
 	// TODO 参数校验
 	if from == "" || to == "" || amount <= 0 {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "param err"})
 		return
 	}
 	// 添加随机数,防止重放
