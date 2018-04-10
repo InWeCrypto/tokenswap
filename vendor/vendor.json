@@ -278,6 +278,12 @@
 			"revisionTime": "2018-03-19T07:25:14Z"
 		},
 		{
+			"checksumSHA1": "cdZBRvzutKm6L7Qsx2MS7eNm6aY=",
+			"path": "github.com/inwecrypto/neogo/nep5",
+			"revision": "f854ea60d097f7b282442e439fd38f97f9e80e70",
+			"revisionTime": "2018-04-10T07:15:44Z"
+		},
+		{
 			"checksumSHA1": "+bfCDfcWJFCKLIVLXBIzTSA5nvE=",
 			"path": "github.com/inwecrypto/neogo/rpc",
 			"revision": "4fb3539db04cdd7ce1dc4f1fdbc3220ef04da181",
