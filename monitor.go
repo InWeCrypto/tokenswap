@@ -166,7 +166,7 @@ func (monitor *Monitor) Run() {
 }
 
 func (monitor *Monitor) handleNEOMessage(txid string) bool {
-	//	monitor.DebugF("handle neo tx %s", txid)
+	//	monitor.DebugF("tokenswap handle neo tx %s", txid)
 
 	neoTxs := make([]neodb.Tx, 0)
 
@@ -247,7 +247,7 @@ func (monitor *Monitor) parseEthValue(value string) string {
 }
 
 func (monitor *Monitor) handleETHMessage(txid string) bool {
-	//	monitor.DebugF("handle eth tx %s", txid)
+	monitor.DebugF("tokenswap handle eth tx %s", txid)
 
 	ethTx := new(ethdb.TableTx)
 
