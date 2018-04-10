@@ -264,7 +264,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		return true
 	}
 
-	if ethTx.From == monitor.ETHKeyAddress && ethTx.Asset == monitor.tncOfETH && false {
+	if ethTx.From == monitor.ETHKeyAddress && ethTx.Asset == monitor.tncOfETH {
 		// complete order
 		value := monitor.parseEthValue(ethTx.Value)
 
