@@ -149,12 +149,27 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		return
 	}
 
+	// 地址长度格式校验
 	if strings.Index(from, "0x") >= 0 && len(from) == 42 {
 		from = strings.ToLower(from)
-	}
 
-	if strings.Index(to, "0x") >= 0 && len(to) == 42 {
-		to = strings.ToLower(to)
+		if len(to) != 34 {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "address err"})
+			return
+		}
+
+	} else {
+		if strings.Index(to, "0x") >= 0 && len(to) == 42 {
+			to = strings.ToLower(to)
+
+			if len(from) != 34 {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "address err"})
+				return
+			}
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "address err"})
+			return
+		}
 	}
 
 	// 添加随机数,防止重放
@@ -179,9 +194,11 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	res["TX"] = order.TX
 	res["Value"] = fx8value.String()
 
-	if len(from) == 42 {
+	if strings.Index(from, "0x") >= 0 && len(from) == 42 {
 		res["Address"] = server.keyAddressOFNEO
-	} else if len(to) == 42 {
+	}
+
+	if strings.Index(from, "0x") >= 0 && len(to) == 42 {
 		res["Address"] = server.keyAddressOfETH
 	}
 
