@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/dynamicgo/config"
 	"github.com/dynamicgo/slf4go"
 	"github.com/go-xorm/xorm"
@@ -21,6 +23,9 @@ import (
 	"github.com/inwecrypto/gomq"
 	"github.com/inwecrypto/neodb"
 	neokeystore "github.com/inwecrypto/neogo/keystore"
+	"github.com/inwecrypto/neogo/nep5"
+	neorpc "github.com/inwecrypto/neogo/rpc"
+	neotx "github.com/inwecrypto/neogo/tx"
 )
 
 const ETH_TNC_DECIAMLS = 8
@@ -38,6 +43,7 @@ type Monitor struct {
 	ETHKeyAddress string
 	NEOKeyAddress string
 	ethClient     *ethrpc.Client
+	neoClient     *neorpc.Client
 	config        *config.Config
 }
 
@@ -86,6 +92,7 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 		ETHKeyAddress: ethKey.Address,
 		NEOKeyAddress: neoKey.Address,
 		ethClient:     ethrpc.NewClient(conf.GetString("eth.node", "")),
+		neoClient:     neorpc.NewClient(conf.GetString("neo.node", "")),
 		config:        conf,
 	}, nil
 }
@@ -221,7 +228,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			}
 
 			if err := monitor.sendETH(order); err != nil {
-				monitor.ErrorF("handle neo tx %s -- send neo error %s", txid, err)
+				monitor.ErrorF("handle neo tx %s -- send TNC error %s", txid, err)
 				return false
 			}
 
@@ -307,7 +314,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		}
 
 		if err := monitor.sendNEO(order); err != nil {
-			monitor.ErrorF("handle eth tx %s -- send neo error %s", txid, err)
+			monitor.ErrorF("handle eth tx %s -- send TNC error %s", txid, err)
 			return false
 		}
 
@@ -343,7 +350,81 @@ func (monitor *Monitor) insertLogAndUpdate(log *Log, order *Order, cls ...string
 }
 
 func (monitor *Monitor) sendNEO(order *Order) error {
-	return fmt.Errorf("Not implement")
+
+	amount, b := ethmath.ParseUint64(order.Value)
+	if !b {
+		monitor.ErrorF("ParseUint64  %s  err  ", order.Value)
+		return errors.New("ParseUint64 err")
+	}
+
+	transferValue := big.NewInt(int64(amount))
+
+	key, err := readNEOKeyStore(monitor.config, "neo.keystore", monitor.config.GetString("neo.keystorepassword", ""))
+
+	if err != nil {
+		monitor.ErrorF("read neo key  error %s", err)
+		return err
+	}
+
+	from := ToInvocationAddress(key.Address)
+
+	to := ToInvocationAddress(order.To)
+
+	scriptHash, err := hex.DecodeString(strings.TrimPrefix(monitor.tncOfNEO, "0x"))
+	if err != nil {
+		monitor.ErrorF("DecodeString  error %s", err)
+		return err
+	}
+
+	scriptHash = reverseBytes(scriptHash)
+
+	bytesOfFrom, err := hex.DecodeString(from)
+	if err != nil {
+		monitor.ErrorF("DecodeString  error %s", err)
+		return err
+	}
+
+	bytesOfFrom = reverseBytes(bytesOfFrom)
+
+	bytesOfTo, err := hex.DecodeString(to)
+	if err != nil {
+		monitor.ErrorF("DecodeString  error %s", err)
+		return err
+	}
+
+	bytesOfTo = reverseBytes(bytesOfTo)
+
+	script, err := nep5.Transfer(scriptHash, bytesOfFrom, bytesOfTo, transferValue)
+
+	if err != nil {
+		monitor.ErrorF("Transfer  error:%s,  to:%s  value: %v", err, order.To, order.Value)
+		return err
+	}
+
+	nonce, _ := time.Now().MarshalBinary()
+
+	tx := neotx.NewInvocationTx(script, 0, bytesOfFrom, nonce)
+
+	rawtx, txId, err := tx.Tx().Sign(key.PrivateKey)
+
+	if err != nil {
+		monitor.ErrorF("Sign  error:%s,   to:%s  value: %v", err, order.To, order.Value)
+		return err
+	}
+
+	status, err := monitor.neoClient.SendRawTransaction(rawtx)
+
+	if err != nil || !status {
+		monitor.ErrorF("SendRawTransaction  error:%s,  to:%s  value: %v", err, order.To, order.Value)
+		return err
+	}
+
+	monitor.InfoF("from : %s ", monitor.NEOKeyAddress)
+	monitor.InfoF("to   : %s ", order.To)
+	monitor.InfoF("value: %f ", order.Value)
+	monitor.InfoF("tx   : %s ", txId)
+
+	return nil
 }
 
 func (monitor *Monitor) sendETH(order *Order) error {
@@ -374,7 +455,7 @@ func (monitor *Monitor) sendETH(order *Order) error {
 	ethKey, err := readETHKeyStore(monitor.config, "eth.keystore", monitor.config.GetString("eth.keystorepassword", ""))
 
 	if err != nil {
-		monitor.ErrorF("create neo db engine error %s", err)
+		monitor.ErrorF("read eth key error %s", err)
 		return err
 	}
 
@@ -452,4 +533,30 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 	}
 
 	return order, nil
+}
+
+// ToInvocationAddress neo wallet address to invocation address
+func ToInvocationAddress(address string) string {
+	bytesOfAddress, _ := decodeAddress(address)
+
+	return hex.EncodeToString(reverseBytes(bytesOfAddress))
+}
+
+func reverseBytes(s []byte) []byte {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+
+	return s
+}
+
+func decodeAddress(address string) ([]byte, error) {
+
+	result, _, err := base58.CheckDecode(address)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result[0:20], nil
 }

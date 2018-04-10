@@ -14,19 +14,17 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-xorm/xorm"
-	ethkeystore "github.com/inwecrypto/ethgo/keystore"
-	neokeystore "github.com/inwecrypto/neogo/keystore"
 	neotx "github.com/inwecrypto/neogo/tx"
 )
 
 type WebServer struct {
 	slf4go.Logger
-	engine     *gin.Engine
-	db         *xorm.Engine
-	laddr      string
-	TXGenerate *snowflake.Node
-	keyOfETH   *ethkeystore.Key
-	keyOFNEO   *neokeystore.Key
+	engine          *gin.Engine
+	db              *xorm.Engine
+	laddr           string
+	TXGenerate      *snowflake.Node
+	keyAddressOfETH string
+	keyAddressOFNEO string
 }
 
 func NewWebServer(conf *config.Config) (*WebServer, error) {
@@ -57,13 +55,13 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 	}
 
 	server := &WebServer{
-		engine:     engine,
-		Logger:     slf4go.Get("tokenswap-gin"),
-		laddr:      conf.GetString("tokenswap.webladdr", ":8000"),
-		db:         tokenswapdb,
-		TXGenerate: node,
-		keyOfETH:   ethKey,
-		keyOFNEO:   neoKey,
+		engine:          engine,
+		Logger:          slf4go.Get("tokenswap-gin"),
+		laddr:           conf.GetString("tokenswap.webladdr", ":8000"),
+		db:              tokenswapdb,
+		TXGenerate:      node,
+		keyAddressOfETH: ethKey.Address,
+		keyAddressOFNEO: neoKey.Address,
 	}
 
 	// gin log write to backend
@@ -150,6 +148,15 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "param err"})
 		return
 	}
+
+	if strings.Index(from, "0x") >= 0 && len(from) == 42 {
+		from = strings.ToLower(from)
+	}
+
+	if strings.Index(to, "0x") >= 0 && len(to) == 42 {
+		to = strings.ToLower(to)
+	}
+
 	// 添加随机数,防止重放
 	r := rand.Intn(9999) + 1
 	fx8value := neotx.MakeFixed8(float64(amount) + float64(r)/float64(10000))
@@ -157,7 +164,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	order := Order{
 		TX:         server.TXGenerate.Generate().String(),
 		From:       from,
-		To:         strings.ToLower(to),
+		To:         to,
 		Value:      fmt.Sprint(int64(fx8value)),
 		CreateTime: time.Now(),
 	}
@@ -171,7 +178,12 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	res := make(map[string]string)
 	res["TX"] = order.TX
 	res["Value"] = fx8value.String()
-	res["Address"] = server.keyOFNEO.Address
+
+	if len(from) == 42 {
+		res["Address"] = server.keyAddressOFNEO
+	} else if len(to) == 42 {
+		res["Address"] = server.keyAddressOfETH
+	}
 
 	ctx.JSON(http.StatusOK, res)
 }
