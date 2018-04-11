@@ -89,7 +89,7 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 		neodb:         neodb,
 		tncOfETH:      conf.GetString("eth.tnc", ""),
 		tncOfNEO:      conf.GetString("neo.tnc", ""),
-		ETHKeyAddress: ethKey.Address,
+		ETHKeyAddress: strings.ToLower(ethKey.Address),
 		NEOKeyAddress: neoKey.Address,
 		ethClient:     ethrpc.NewClient(conf.GetString("eth.node", "")),
 		neoClient:     neorpc.NewClient(conf.GetString("neo.node", "")),
