@@ -427,7 +427,7 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 
 	monitor.InfoF("from : %s ", monitor.NEOKeyAddress)
 	monitor.InfoF("to   : %s ", order.To)
-	monitor.InfoF("value: %f ", order.Value)
+	monitor.InfoF("value: %v ", order.Value)
 	monitor.InfoF("tx   : %s ", txId)
 
 	return nil
@@ -445,16 +445,16 @@ func (monitor *Monitor) sendETH(order *Order) error {
 
 	codes, err := erc20.Transfer(order.To, hex.EncodeToString(transferValue.Bytes()))
 	if err != nil {
-		monitor.ErrorF("get erc20.Transfer(%s,%f) code err: %v ", order.To, order.Value, err)
+		monitor.ErrorF("get erc20.Transfer(%s,%v) code err: %v ", order.To, order.Value, err)
 		return err
 	}
 
-	gasLimits := big.NewInt(61000)
+	gasLimits := big.NewInt(65000)
 	gasPrice := ethgo.NewValue(big.NewFloat(20), ethgo.Shannon)
 
 	nonce, err := monitor.ethClient.Nonce(monitor.ETHKeyAddress)
 	if err != nil {
-		monitor.ErrorF("get Nonce   (%s,%f)  err: %v ", order.To, order.Value, err)
+		monitor.ErrorF("get Nonce   (%s,%v)  err: %v ", order.To, order.Value, err)
 		return err
 	}
 
@@ -468,25 +468,27 @@ func (monitor *Monitor) sendETH(order *Order) error {
 	ntx := ethtx.NewTx(nonce, monitor.tncOfETH, nil, gasPrice, gasLimits, codes)
 	err = ntx.Sign(ethKey.PrivateKey)
 	if err != nil {
-		monitor.ErrorF("Sign  (%s,%f)  err: %v ", order.To, order.Value, err)
+		monitor.ErrorF("Sign  (%s,%v)  err: %v ", order.To, order.Value, err)
 		return err
 	}
 
 	rawtx, err := ntx.Encode()
 	if err != nil {
-		monitor.ErrorF("Encode  (%s,%f)  err: %v ", order.To, order.Value, err)
+		monitor.ErrorF("Encode  (%s,%v)  err: %v ", order.To, order.Value, err)
 		return err
 	}
 
+	monitor.DebugF("from new address: %s,%s,%s", monitor.ETHKeyAddress, ethKey.Address, ethKey.PrivateKey)
+
 	tx, err := monitor.ethClient.SendRawTransaction(rawtx)
 	if err != nil {
-		monitor.ErrorF("SendRawTransaction  (%s,%f)  err: %v ", order.To, order.Value, err)
+		monitor.ErrorF("SendRawTransaction  (%s,%v)  err: %v ", order.To, order.Value, err)
 		return err
 	}
 
 	monitor.InfoF("from : %s ", monitor.ETHKeyAddress)
 	monitor.InfoF("to   : %s ", order.To)
-	monitor.InfoF("value: %f ", order.Value)
+	monitor.InfoF("value: %v ", order.Value)
 	monitor.InfoF("tx   : %s ", tx)
 
 	return nil
