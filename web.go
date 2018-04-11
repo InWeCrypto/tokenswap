@@ -17,6 +17,12 @@ import (
 	neotx "github.com/inwecrypto/neogo/tx"
 )
 
+type Response struct {
+	Code  int
+	Error string
+	Data  interface{}
+}
+
 type WebServer struct {
 	slf4go.Logger
 	engine          *gin.Engine
@@ -108,11 +114,11 @@ func (server *WebServer) GetOrderLog(ctx *gin.Context) {
 	logs := make([]Log, 0)
 	err := server.db.Where(` "t_x" = ?`, tx).Desc("create_time").Find(&logs)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, logs)
+	ctx.JSON(http.StatusOK, Response{0, "", logs})
 }
 
 func (server *WebServer) GetOrder(ctx *gin.Context) {
@@ -123,10 +129,10 @@ func (server *WebServer) GetOrder(ctx *gin.Context) {
 	order := &Order{}
 	_, err := server.db.Where(` "t_x" = ?`, tx).Get(order)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
 		return
 	}
-	ctx.JSON(http.StatusOK, order)
+	ctx.JSON(http.StatusOK, Response{0, "", order})
 }
 
 func (server *WebServer) CreateOrder(ctx *gin.Context) {
@@ -139,13 +145,13 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 
 	amount, err := strconv.ParseFloat(value, 64)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
 		return
 	}
 
 	// TODO 参数校验
 	if from == "" || to == "" || amount <= 0 {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "param err"})
+		ctx.JSON(http.StatusOK, Response{1, "param error", nil})
 		return
 	}
 
@@ -154,7 +160,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		from = strings.ToLower(from)
 
 		if len(to) != 34 {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "address err"})
+			ctx.JSON(http.StatusOK, Response{1, "address error", nil})
 			return
 		}
 
@@ -163,11 +169,11 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 			to = strings.ToLower(to)
 
 			if len(from) != 34 {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "address err"})
+				ctx.JSON(http.StatusOK, Response{1, "address error", nil})
 				return
 			}
 		} else {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "address err"})
+			ctx.JSON(http.StatusOK, Response{1, "address error", nil})
 			return
 		}
 	}
@@ -186,7 +192,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 
 	_, err = server.db.Insert(order)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
 		return
 	}
 
@@ -202,5 +208,5 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		res["Address"] = server.keyAddressOfETH
 	}
 
-	ctx.JSON(http.StatusOK, res)
+	ctx.JSON(http.StatusOK, Response{0, "", res})
 }
