@@ -112,7 +112,8 @@ func (server *WebServer) GetOrderLog(ctx *gin.Context) {
 
 	tx := ctx.Param("tx")
 	logs := make([]Log, 0)
-	err := server.db.Where(` "t_x" = ?`, tx).Desc("create_time").Find(&logs)
+	//	err := server.db.Where(` "t_x" = ?`, tx).Desc("create_time").Find(&logs)
+	err := server.db.Where(` "t_x" = ?`, tx).Find(&logs)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
 		return
