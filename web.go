@@ -204,7 +204,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		res["Address"] = server.keyAddressOFNEO
 	}
 
-	if strings.Index(from, "0x") >= 0 && len(to) == 42 {
+	if strings.Index(to, "0x") >= 0 && len(to) == 42 {
 		res["Address"] = server.keyAddressOfETH
 	}
 
