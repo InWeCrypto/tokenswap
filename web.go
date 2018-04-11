@@ -128,7 +128,7 @@ func (server *WebServer) GetOrder(ctx *gin.Context) {
 
 	tx := ctx.Param("tx")
 	order := &Order{}
-	_, err := server.db.Where(` "t_x" = ?`, tx).Get(order)
+	_, err := server.db.Where(` "t_x" = ?`, tx).OrderBy("create_time").Get(order)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
 		return
