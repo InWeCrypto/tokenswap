@@ -248,7 +248,7 @@ func (monitor *Monitor) parseEthValue(value string) string {
 }
 
 func (monitor *Monitor) handleETHMessage(txid string) bool {
-	monitor.DebugF("tokenswap handle eth tx %s", txid)
+	//	monitor.DebugF("tokenswap handle eth tx %s", txid)
 
 	ethTx := new(ethdb.TableTx)
 
