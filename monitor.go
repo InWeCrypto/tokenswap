@@ -478,7 +478,7 @@ func (monitor *Monitor) sendETH(order *Order) error {
 		return err
 	}
 
-	monitor.DebugF("from new address: %s,%s,%s", monitor.ETHKeyAddress, ethKey.Address, hex.EncodeToString(rawtx))
+	monitor.DebugF("address rawtx : %s,%s", monitor.ETHKeyAddress, hex.EncodeToString(rawtx))
 
 	tx, err := monitor.ethClient.SendRawTransaction(rawtx)
 	if err != nil {
