@@ -201,11 +201,11 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	res["Value"] = fx8value.String()
 
 	if strings.Index(from, "0x") >= 0 && len(from) == 42 {
-		res["Address"] = server.keyAddressOFNEO
+		res["Address"] = server.keyAddressOfETH
 	}
 
 	if strings.Index(to, "0x") >= 0 && len(to) == 42 {
-		res["Address"] = server.keyAddressOfETH
+		res["Address"] = server.keyAddressOFNEO
 	}
 
 	ctx.JSON(http.StatusOK, Response{0, "", res})
