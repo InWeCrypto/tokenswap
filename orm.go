@@ -11,6 +11,7 @@ type Order struct {
 	Value         string    `xorm:"notnull index(from_to_value)"`
 	InTx          string    `xorm:"index"`
 	OutTx         string    `xorm:"index"`
+	SendValue     string    `xorm:"notnull"`
 	TaxCost       string    `xorm:"notnull"`
 	CreateTime    time.Time `xorm:"TIMESTAMP notnull"`
 	CompletedTime time.Time `xorm:"TIMESTAMP"`

@@ -248,7 +248,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 				return false
 			}
 
-			if err := monitor.insertLogAndUpdate(nil, order, "tax_cost"); err != nil {
+			if err := monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value"); err != nil {
 				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
 				return false
 			}
@@ -344,7 +344,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 			return false
 		}
 
-		if err := monitor.insertLogAndUpdate(nil, order, "tax_cost"); err != nil {
+		if err := monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value"); err != nil {
 			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
 			return false
 		}
@@ -396,6 +396,8 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 	order.TaxCost = fmt.Sprint(taxAmount)
 
 	transferValue := big.NewInt(int64(amount) - taxAmount)
+
+	order.SendValue = fmt.Sprint(transferValue.Int64())
 
 	key, err := readNEOKeyStore(monitor.config, "neo.keystore", monitor.config.GetString("neo.keystorepassword", ""))
 
@@ -479,6 +481,8 @@ func (monitor *Monitor) sendETH(order *Order) error {
 
 	transferValue := big.NewInt(int64(amount) - taxAmount)
 
+	order.SendValue = fmt.Sprint(transferValue.Int64())
+
 	codes, err := erc20.Transfer(order.To, hex.EncodeToString(transferValue.Bytes()))
 	if err != nil {
 		monitor.ErrorF("get erc20.Transfer(%s,%v) code err: %v ", order.To, order.Value, err)
@@ -538,7 +542,7 @@ func (monitor *Monitor) getOrderByToAddress(to, value string, createTime time.Ti
 	}
 
 	ok, err := monitor.tokenswapdb.Where(
-		`"to" = ? and "value" = ? and "create_time" < ?  `+where, to, value, createTime).Get(order)
+		`"to" = ? and "send_value" = ? and "create_time" < ?  `+where, to, value, createTime).Get(order)
 
 	if err != nil {
 		monitor.ErrorF("query to order(%s,%s,%s) error, %s", to, value, where, err)
