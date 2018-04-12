@@ -114,6 +114,9 @@ func (server *WebServer) makeRouters() {
 }
 
 func (server *WebServer) TradeInfo(ctx *gin.Context) {
+	ctx.Header("Access-Control-Allow-Origin", "*")
+	ctx.Header("access-control-allow-headers", "Content-Type, Accept, Authorization, X-Requested-With, ct, Origin, X_Requested_With, Lang")
+
 	info := make(map[string]interface{})
 	info["limitAmount"] = server.limitAmount
 	info["eth2neotax"] = server.eth2neotax
