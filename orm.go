@@ -4,13 +4,14 @@ import "time"
 
 // Order tokenswap order
 type Order struct {
-	ID            int64     `xorm:"pk autoincr"`
-	TX            string    `xorm:"index notnull"`
-	From          string    `xorm:"notnull index(from_to_value)"`
-	To            string    `xorm:"notnull index(from_to_value)"`
-	Value         string    `xorm:"notnull index(from_to_value)"`
-	InTx          string    `xorm:"index"`
-	OutTx         string    `xorm:"index"`
+	ID            int64  `xorm:"pk autoincr"`
+	TX            string `xorm:"index notnull"`
+	From          string `xorm:"notnull index(from_to_value)"`
+	To            string `xorm:"notnull index(from_to_value)"`
+	Value         string `xorm:"notnull index(from_to_value)"`
+	InTx          string `xorm:"index"`
+	OutTx         string `xorm:"index"`
+	TaxCost       string
 	CreateTime    time.Time `xorm:"TIMESTAMP notnull"`
 	CompletedTime time.Time `xorm:"TIMESTAMP"`
 }

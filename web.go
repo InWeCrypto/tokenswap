@@ -31,6 +31,7 @@ type WebServer struct {
 	TXGenerate      *snowflake.Node
 	keyAddressOfETH string
 	keyAddressOFNEO string
+	limitAmount     int64 // 最低转账数量
 }
 
 func NewWebServer(conf *config.Config) (*WebServer, error) {
@@ -68,6 +69,7 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		TXGenerate:      node,
 		keyAddressOfETH: ethKey.Address,
 		keyAddressOFNEO: neoKey.Address,
+		limitAmount:     conf.GetInt64("tokenswap.limitamount", 10000),
 	}
 
 	// gin log write to backend
@@ -147,6 +149,11 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	amount, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
+		return
+	}
+
+	if amount < float64(server.limitAmount) {
+		ctx.JSON(http.StatusOK, Response{1, "amount must over " + fmt.Sprint(server.limitAmount), nil})
 		return
 	}
 

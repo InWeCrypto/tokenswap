@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,6 +46,8 @@ type Monitor struct {
 	ethClient     *ethrpc.Client
 	neoClient     *neorpc.Client
 	config        *config.Config
+	neo2ethtax    float64 // 转账费率
+	eth2neotax    float64
 }
 
 // NewMonitor create new monitor
@@ -80,6 +83,16 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 		return nil, fmt.Errorf("create neo db engine error %s", err)
 	}
 
+	neo2ethtax, err := strconv.ParseFloat(conf.GetString("tokenswap.neo2ethtax", "0.001"), 64)
+	if err != nil {
+		return nil, fmt.Errorf("ParseFloat neo2ethtax error %s", err)
+	}
+
+	eth2neotax, err := strconv.ParseFloat(conf.GetString("tokenswap.eth2neotax", "0.001"), 64)
+	if err != nil {
+		return nil, fmt.Errorf("ParseFloat eth2neotax error %s", err)
+	}
+
 	return &Monitor{
 		Logger:        slf4go.Get("monitor"),
 		neomq:         neomq,
@@ -93,6 +106,8 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 		NEOKeyAddress: neoKey.Address,
 		ethClient:     ethrpc.NewClient(conf.GetString("eth.node", "")),
 		neoClient:     neorpc.NewClient(conf.GetString("neo.node", "")),
+		neo2ethtax:    neo2ethtax,
+		eth2neotax:    eth2neotax,
 		config:        conf,
 	}, nil
 }
@@ -233,6 +248,11 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 				return false
 			}
 
+			if err := monitor.insertLogAndUpdate(nil, order, "tax_cost"); err != nil {
+				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				return false
+			}
+
 			return true
 		}
 	}
@@ -324,6 +344,11 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 			return false
 		}
 
+		if err := monitor.insertLogAndUpdate(nil, order, "tax_cost"); err != nil {
+			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
+			return false
+		}
+
 		return true
 	}
 
@@ -336,12 +361,15 @@ func (monitor *Monitor) insertLogAndUpdate(log *Log, order *Order, cls ...string
 
 	defer session.Close()
 
-	_, err := session.InsertOne(log)
+	var err error
+	if log != nil {
+		_, err = session.InsertOne(log)
 
-	if err != nil {
-		session.Rollback()
-		monitor.ErrorF("insert order(%s,%s,%s) log error, %s", order.From, order.To, order.Value, err)
-		return err
+		if err != nil {
+			session.Rollback()
+			monitor.ErrorF("insert order(%s,%s,%s) log error, %s", order.From, order.To, order.Value, err)
+			return err
+		}
 	}
 
 	_, err = session.Where(` "t_x" = ?`, order.TX).Cols(cls...).Update(order)
@@ -363,7 +391,11 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 		return errors.New("ParseUint64 err")
 	}
 
-	transferValue := big.NewInt(int64(amount))
+	taxAmount := int64(float64(amount) * monitor.eth2neotax)
+
+	order.TaxCost = fmt.Sprint(taxAmount)
+
+	transferValue := big.NewInt(int64(amount) - taxAmount)
 
 	key, err := readNEOKeyStore(monitor.config, "neo.keystore", monitor.config.GetString("neo.keystorepassword", ""))
 
@@ -441,7 +473,11 @@ func (monitor *Monitor) sendETH(order *Order) error {
 		return errors.New("ParseUint64 err")
 	}
 
-	transferValue := big.NewInt(int64(amount))
+	taxAmount := int64(float64(amount) * monitor.neo2ethtax)
+
+	order.TaxCost = fmt.Sprint(taxAmount)
+
+	transferValue := big.NewInt(int64(amount) - taxAmount)
 
 	codes, err := erc20.Transfer(order.To, hex.EncodeToString(transferValue.Bytes()))
 	if err != nil {
