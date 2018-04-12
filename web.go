@@ -31,9 +31,9 @@ type WebServer struct {
 	TXGenerate      *snowflake.Node
 	keyAddressOfETH string
 	keyAddressOFNEO string
-	limitAmount     int64   // 最低转账数量
-	neo2ethtax      float64 // 转账费率
-	eth2neotax      float64
+	limitAmount     int64  // 最低转账数量
+	neo2ethtax      string // 转账费率
+	eth2neotax      string
 }
 
 func NewWebServer(conf *config.Config) (*WebServer, error) {
@@ -63,16 +63,6 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		return nil, err
 	}
 
-	neo2ethtax, err := strconv.ParseFloat(conf.GetString("tokenswap.neo2ethtax", "0.001"), 64)
-	if err != nil {
-		return nil, fmt.Errorf("ParseFloat neo2ethtax error %s", err)
-	}
-
-	eth2neotax, err := strconv.ParseFloat(conf.GetString("tokenswap.eth2neotax", "0.001"), 64)
-	if err != nil {
-		return nil, fmt.Errorf("ParseFloat eth2neotax error %s", err)
-	}
-
 	server := &WebServer{
 		engine:          engine,
 		Logger:          slf4go.Get("tokenswap-gin"),
@@ -82,8 +72,8 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		keyAddressOfETH: ethKey.Address,
 		keyAddressOFNEO: neoKey.Address,
 		limitAmount:     conf.GetInt64("tokenswap.limitamount", 10000),
-		neo2ethtax:      neo2ethtax,
-		eth2neotax:      eth2neotax,
+		neo2ethtax:      conf.GetString("tokenswap.neo2ethtax", "0.001"),
+		eth2neotax:      conf.GetString("tokenswap.eth2neotax", "0.001"),
 	}
 
 	// gin log write to backend
