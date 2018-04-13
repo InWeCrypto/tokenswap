@@ -36,6 +36,22 @@ type WebServer struct {
 	eth2neotax      string
 }
 
+func LimitMiddleware(cache int64) gin.HandlerFunc {
+	semaphore := make(chan bool, cache)
+
+	return func(c *gin.Context) {
+		select {
+		case semaphore <- true:
+			c.Next()
+			<-semaphore
+		default:
+			c.JSON(http.StatusForbidden, Response{1, "request too frequently, server is busy.", nil})
+			c.Abort()
+			return
+		}
+	}
+}
+
 func NewWebServer(conf *config.Config) (*WebServer, error) {
 	tokenswapdb, err := createEngine(conf, "tokenswapdb")
 
@@ -43,7 +59,11 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		return nil, fmt.Errorf("create tokenswap db engine error %s", err)
 	}
 
+	cache := conf.GetInt64("tokenswap.requestcache", 100)
+
 	engine := gin.New()
+
+	engine.Use(LimitMiddleware(cache))
 	engine.Use(gin.Recovery())
 
 	ethKey, err := readETHKeyStore(conf, "eth.keystore", conf.GetString("eth.keystorepassword", ""))
