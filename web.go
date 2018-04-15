@@ -157,6 +157,7 @@ func (server *WebServer) TradeInfo(ctx *gin.Context) {
 
 	info := make(map[string]interface{})
 	info["limitAmount"] = server.limitAmount
+	info["maxAmount"] = server.maxAmount
 	info["eth2neotax"] = server.eth2neotax
 	info["neo2ethtax"] = server.neo2ethtax
 
