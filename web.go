@@ -1,6 +1,7 @@
 package tokenswap
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-xorm/xorm"
+	ethrpc "github.com/inwecrypto/ethgo/rpc"
+	neorpc "github.com/inwecrypto/neogo/rpc"
 	neotx "github.com/inwecrypto/neogo/tx"
 )
 
@@ -34,6 +37,10 @@ type WebServer struct {
 	limitAmount     int64  // 最低转账数量
 	neo2ethtax      string // 转账费率
 	eth2neotax      string
+	ethClient       *ethrpc.Client
+	neoClient       *neorpc.Client
+	tncOfNEO        string
+	tncOfETH        string
 }
 
 func LimitMiddleware(limit int64, interval int64) gin.HandlerFunc {
@@ -99,6 +106,10 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		limitAmount:     conf.GetInt64("tokenswap.limitamount", 10000),
 		neo2ethtax:      conf.GetString("tokenswap.neo2ethtax", "0.001"),
 		eth2neotax:      conf.GetString("tokenswap.eth2neotax", "0.001"),
+		ethClient:       ethrpc.NewClient(conf.GetString("eth.node", "")),
+		neoClient:       neorpc.NewClient(conf.GetString("neo.node", "")),
+		tncOfETH:        conf.GetString("eth.tnc", ""),
+		tncOfNEO:        conf.GetString("neo.tnc", ""),
 	}
 
 	// gin log write to backend
@@ -180,6 +191,39 @@ func (server *WebServer) GetOrder(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, Response{0, "", order})
 }
 
+func (server *WebServer) checkNEOBalance(transferValue int64) error {
+	from := ToInvocationAddress(server.keyAddressOFNEO)
+	tokenBalance, err := server.neoClient.Nep5BalanceOf(server.tncOfNEO, from)
+	if err != nil {
+		server.ErrorF("get neo(%s) balance err: %v ", server.keyAddressOFNEO, err)
+		return errors.New("trader NEO-TNC account balance not enough")
+	}
+
+	if tokenBalance < uint64(transferValue) {
+		server.ErrorF("neo(%s) balance:%d , transferValue:%d, balance not enough  err: %v ",
+			server.keyAddressOFNEO, tokenBalance, transferValue, err)
+		return errors.New("trader NEO-TNC account balance not enough")
+	}
+
+	return nil
+}
+
+func (server *WebServer) checkETHBalance(transferValue int64) error {
+	balance, err := server.ethClient.GetTokenBalance(server.tncOfETH, server.keyAddressOfETH)
+	if err != nil {
+		server.ErrorF("get eth(%s) balance err: %v ", server.keyAddressOfETH, err)
+		return errors.New("trader ETH-TNC account balance not enough")
+	}
+
+	if balance.Int64() < transferValue {
+		server.ErrorF("eth(%s) balance:%d , transferValue:%d, balance not enough  err: %v ",
+			server.keyAddressOfETH, balance.Int64(), transferValue, err)
+		return errors.New("trader ETH-TNC account balance not enough")
+	}
+
+	return nil
+}
+
 func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	ctx.Header("Access-Control-Allow-Origin", "*")
 	ctx.Header("access-control-allow-headers", "Content-Type, Accept, Authorization, X-Requested-With, ct, Origin, X_Requested_With, Lang")
@@ -228,9 +272,38 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		}
 	}
 
+	res := make(map[string]string)
+
 	// 添加随机数,防止重放
 	r := rand.Intn(9999) + 1
 	fx8value := neotx.MakeFixed8(float64(amount) + float64(r)/float64(10000))
+
+	if fx8value < 0 {
+		ctx.JSON(http.StatusOK, Response{1, "amount param error", nil})
+		return
+	}
+
+	if strings.Index(from, "0x") >= 0 && len(from) == 42 {
+		res["Address"] = server.keyAddressOfETH
+
+		err := server.checkNEOBalance(int64(fx8value))
+		if err != nil {
+			ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
+			return
+		}
+	}
+
+	if strings.Index(to, "0x") >= 0 && len(to) == 42 {
+		res["Address"] = server.keyAddressOFNEO
+
+		err := server.checkETHBalance(int64(fx8value))
+		if err != nil {
+			ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
+			return
+		}
+	}
+
+	res["Value"] = fx8value.String()
 
 	order := Order{
 		TX:         server.TXGenerate.Generate().String(),
@@ -246,17 +319,8 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 		return
 	}
 
-	res := make(map[string]string)
 	res["TX"] = order.TX
-	res["Value"] = fx8value.String()
-
-	if strings.Index(from, "0x") >= 0 && len(from) == 42 {
-		res["Address"] = server.keyAddressOfETH
-	}
-
-	if strings.Index(to, "0x") >= 0 && len(to) == 42 {
-		res["Address"] = server.keyAddressOFNEO
-	}
+	res["createTime"] = fmt.Sprint(order.CreateTime.Unix())
 
 	ctx.JSON(http.StatusOK, Response{0, "", res})
 }
