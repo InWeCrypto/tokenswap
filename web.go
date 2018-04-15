@@ -320,7 +320,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	}
 
 	res["TX"] = order.TX
-	res["createTime"] = fmt.Sprint(order.CreateTime.Unix())
+	res["CreateTime"] = fmt.Sprint(order.CreateTime.Unix())
 
 	ctx.JSON(http.StatusOK, Response{0, "", res})
 }
