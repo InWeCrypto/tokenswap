@@ -35,6 +35,7 @@ type WebServer struct {
 	keyAddressOfETH string
 	keyAddressOFNEO string
 	limitAmount     int64  // 最低转账数量
+	maxAmount       int64  // 最大转账数量
 	neo2ethtax      string // 转账费率
 	eth2neotax      string
 	ethClient       *ethrpc.Client
@@ -104,6 +105,7 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 		keyAddressOfETH: ethKey.Address,
 		keyAddressOFNEO: neoKey.Address,
 		limitAmount:     conf.GetInt64("tokenswap.limitamount", 10000),
+		maxAmount:       conf.GetInt64("tokenswap.maxamount", 100000),
 		neo2ethtax:      conf.GetString("tokenswap.neo2ethtax", "0.001"),
 		eth2neotax:      conf.GetString("tokenswap.eth2neotax", "0.001"),
 		ethClient:       ethrpc.NewClient(conf.GetString("eth.node", "")),
@@ -235,6 +237,11 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	amount, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
+		return
+	}
+
+	if amount > float64(server.maxAmount) {
+		ctx.JSON(http.StatusOK, Response{1, "amount too large " + fmt.Sprint(server.limitAmount), nil})
 		return
 	}
 
