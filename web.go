@@ -242,7 +242,7 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	}
 
 	if amount > float64(server.maxAmount) {
-		ctx.JSON(http.StatusOK, Response{1, "amount too large " + fmt.Sprint(server.limitAmount), nil})
+		ctx.JSON(http.StatusOK, Response{1, "amount too large, max amount: " + fmt.Sprint(server.maxAmount), nil})
 		return
 	}
 
