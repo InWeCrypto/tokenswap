@@ -811,6 +811,11 @@ func (monitor *Monitor) EthSendMoniter() {
 								break
 							}
 
+							err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
+							if err != nil {
+								monitor.ErrorF(" update send NEO log error :%s ", err.Error())
+							}
+
 							if !monitor.waitEthTx(tx) {
 								monitor.DebugF("waitEthTx pending time out :%x", tx)
 
@@ -828,11 +833,6 @@ func (monitor *Monitor) EthSendMoniter() {
 						}
 
 						if sendSuccess {
-							err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
-							if err != nil {
-								monitor.ErrorF(" update send NEO log error :%s ", err.Error())
-							}
-
 							balance.Sub(balance, bigAmount)
 						}
 					}
