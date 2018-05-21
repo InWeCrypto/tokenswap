@@ -598,7 +598,7 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 	}
 
 	ok, err := monitor.tokenswapdb.Where(
-		`"from" = ? and "value" like '%`+value+`%'  and "create_time" < ? `+where, from, createTime).Get(order)
+		`"from" = ? and "value" =? and "create_time" < ? `+where, from, value, createTime).Get(order)
 
 	if err != nil {
 		monitor.ErrorF("query from order(%s,%s,%s) error, %s", from, value, where, err)
