@@ -650,7 +650,7 @@ func (monitor *Monitor) getSendOrder(ty int32) ([]*SendOrder, error) {
 func (monitor *Monitor) updateSendOrderOutTxStatus(tx string) error {
 	order := &SendOrder{Status: 1}
 
-	update, err := monitor.tokenswapdb.Where(`status = 0 and out_tx = ?`, tx).Cols("status").Update(order)
+	update, err := monitor.tokenswapdb.Where(`status = 2 and out_tx = ?`, tx).Cols("status").Update(order)
 
 	if err != nil {
 		monitor.ErrorF("update send orders out_tx status error :%s,out_tx:%s", err.Error(), tx)
