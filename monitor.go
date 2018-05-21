@@ -665,7 +665,7 @@ func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
 func (monitor *Monitor) getSendOrder(ty int32) ([]*SendOrder, error) {
 	orders := make([]*SendOrder, 0)
 
-	err := monitor.tokenswapdb.Where(`status = 0 and to_type =? or status = -1`, ty).
+	err := monitor.tokenswapdb.Where(`( status = 0 or status = -1 ) and to_type =? `, ty).
 		OrderBy(`LENGTH("value"), "value"`).
 		Limit(100).
 		Find(&orders)
@@ -691,7 +691,7 @@ func (monitor *Monitor) updateSendOrderOutTxStatus(tx string) error {
 func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64, retry int32) error {
 	order := &SendOrder{ID: id, OutTx: tx, Status: status, Retry: retry}
 
-	update, err := monitor.tokenswapdb.Where(`status = 0 or status = -1 and i_d = ?`, id).Cols("out_tx", "status", "retry").Update(order)
+	update, err := monitor.tokenswapdb.Where(`(status = 0 or status = -1) and i_d = ?`, id).Cols("out_tx", "status", "retry").Update(order)
 
 	if err != nil {
 		monitor.ErrorF("add send orders out_tx error :%s ,tx:%s", err.Error(), tx)
