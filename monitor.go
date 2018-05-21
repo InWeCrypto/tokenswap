@@ -759,7 +759,7 @@ func (monitor *Monitor) EthSendMoniter() {
 					bigAmount := big.NewInt(int64(amount))
 
 					if balance.Cmp(bigAmount) < 0 {
-						monitor.ErrorF("ETH-TNC wallet(%s)  balance is  not enough !", monitor.NEOKeyAddress)
+						monitor.ErrorF("ETH-TNC wallet(%s)  balance is  not enough !", monitor.ETHKeyAddress)
 						continue
 					}
 
