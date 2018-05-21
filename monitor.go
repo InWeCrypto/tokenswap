@@ -924,6 +924,8 @@ func (monitor *Monitor) CheckEthBlockNumber(tx string, needNumber uint64) bool {
 
 				return true
 			}
+
+			monitor.DebugF("CheckEthBlockNumber %d - %d ", cursorBlock, needNumber)
 		}
 	}
 }
@@ -942,6 +944,8 @@ func (monitor *Monitor) CheckNeoBlockNumber(needNumber uint64) {
 			if uint64(cursorBlock) > needNumber+uint64(monitor.neoConfirmCount) {
 				return
 			}
+
+			monitor.DebugF("CheckNeoBlockNumber %d - %d ", cursorBlock, needNumber)
 		}
 	}
 }
