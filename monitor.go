@@ -683,6 +683,8 @@ func (monitor *Monitor) NeoSendMoniter() {
 				continue
 			}
 
+			monitor.InfoF("NEO-TNC wallet(%s)  balance :%v !", monitor.NEOKeyAddress, tokenBalance)
+
 			sendOrders, err := monitor.getSendOrder(2)
 
 			if err != nil {
@@ -740,6 +742,8 @@ func (monitor *Monitor) EthSendMoniter() {
 				monitor.ErrorF("get eth(%s) balance err: %v ", monitor.ETHKeyAddress, err)
 				continue
 			}
+
+			monitor.InfoF("ETH-TNC wallet(%s)  balance :%v !", monitor.ETHKeyAddress, balance.String())
 
 			sendOrders, err := monitor.getSendOrder(1)
 
