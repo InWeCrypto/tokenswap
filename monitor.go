@@ -202,7 +202,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 
 	for _, neoTx := range neoTxs {
 		if neoTx.From == monitor.NEOKeyAddress && neoTx.Asset == monitor.tncOfNEO {
-			monitor.DebugF("checked neo tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
+			monitor.DebugF("1 checked neo tx (%s) from:%s  to:%s  value:%s  asset:%s", neoTx.TX, neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
 
 			order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
@@ -233,7 +233,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 
 		} else if neoTx.To == monitor.NEOKeyAddress && neoTx.Asset == monitor.tncOfNEO {
 
-			monitor.DebugF("checked neo tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
+			monitor.DebugF("2 checked neo tx (%s) from:%s  to:%s  value:%s  asset:%s", neoTx.TX, neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
 
 			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
@@ -254,6 +254,8 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 				monitor.ErrorF("5 handle neo tx %s error, %s", txid, err)
 				return false
 			}
+
+			monitor.DebugF("in_tx:(%s)", neoTx.TX)
 
 			if err := monitor.insertSendOrder(order, 1); err != nil {
 				return false
@@ -307,7 +309,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		// complete order
 		value := monitor.parseEthValue(ethTx.Value)
 
-		monitor.DebugF("checked eth tx  from:%s  to:%s  value:%s  asset:%s", ethTx.From, ethTx.To, value, monitor.tncOfETH)
+		monitor.DebugF("1 checked eth tx (%s) from:%s  to:%s  value:%s  asset:%s", ethTx.TX, ethTx.From, ethTx.To, value, monitor.tncOfETH)
 
 		order, err := monitor.getOrderByToAddress(ethTx.To, value, ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
@@ -340,7 +342,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 
 		value := monitor.parseEthValue(ethTx.Value)
 
-		monitor.DebugF("checked eth tx  from:%s  to:%s  value:%s  asset:%s", ethTx.From, ethTx.To, value, monitor.tncOfETH)
+		monitor.DebugF("2 checked eth tx (%s)  from:%s  to:%s  value:%s  asset:%s", ethTx.TX, ethTx.From, ethTx.To, value, monitor.tncOfETH)
 
 		order, err := monitor.getOrderByFromAddress(ethTx.From, value, ethTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
