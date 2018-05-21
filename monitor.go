@@ -321,12 +321,12 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 
 	if ethTx.From == monitor.ETHKeyAddress && ethTx.Asset == monitor.tncOfETH {
 
+		ethTxChan <- ethTx.TX
+
 		if !monitor.CheckEthBlockNumber(ethTx.TX, ethTx.Blocks) {
 			monitor.ErrorF("CheckEthBlockNumber can not find tx :%s", ethTx.TX)
 			return true
 		}
-
-		ethTxChan <- ethTx.TX
 
 		// complete order
 		value := monitor.parseEthValue(ethTx.Value)
@@ -911,7 +911,7 @@ func (monitor *Monitor) CheckEthBlockNumber(tx string, needNumber uint64) bool {
 				continue
 			}
 
-			if cursorBlock > needNumber+uint64(monitor.ethConfirmCount) {
+			if cursorBlock >= needNumber+uint64(monitor.ethConfirmCount) {
 
 				tx, err := monitor.ethClient.GetTransactionByHash(tx)
 
@@ -941,7 +941,7 @@ func (monitor *Monitor) CheckNeoBlockNumber(needNumber uint64) {
 				continue
 			}
 
-			if uint64(cursorBlock) > needNumber+uint64(monitor.neoConfirmCount) {
+			if uint64(cursorBlock) >= needNumber+uint64(monitor.neoConfirmCount) {
 				return
 			}
 
