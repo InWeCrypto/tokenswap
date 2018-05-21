@@ -213,6 +213,8 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 		if neoTx.From == monitor.NEOKeyAddress && neoTx.Asset == monitor.tncOfNEO {
 			monitor.DebugF("1 checked neo tx (%s) from:%s  to:%s  value:%s  asset:%s", neoTx.TX, neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
 
+			monitor.CheckNeoBlockNumber(neoTx.Block)
+
 			order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 			if err != nil {
@@ -244,6 +246,8 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 		} else if neoTx.To == monitor.NEOKeyAddress && neoTx.Asset == monitor.tncOfNEO {
 
 			monitor.DebugF("2 checked neo tx (%s) from:%s  to:%s  value:%s  asset:%s", neoTx.TX, neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
+
+			monitor.CheckNeoBlockNumber(neoTx.Block)
 
 			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
@@ -317,6 +321,11 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 
 	if ethTx.From == monitor.ETHKeyAddress && ethTx.Asset == monitor.tncOfETH {
 
+		if !monitor.CheckEthBlockNumber(ethTx.TX, ethTx.Blocks) {
+			monitor.ErrorF("CheckEthBlockNumber can not find tx :%s", ethTx.TX)
+			return true
+		}
+
 		ethTxChan <- ethTx.TX
 
 		// complete order
@@ -353,6 +362,11 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		return true
 
 	} else if ethTx.To == monitor.ETHKeyAddress && ethTx.Asset == monitor.tncOfETH {
+
+		if !monitor.CheckEthBlockNumber(ethTx.TX, ethTx.Blocks) {
+			monitor.ErrorF("CheckEthBlockNumber can not find tx :%s", ethTx.TX)
+			return true
+		}
 
 		value := monitor.parseEthValue(ethTx.Value)
 
@@ -886,7 +900,7 @@ func (monitor *Monitor) waitEthTx(tx string, id int64) bool {
 	}
 }
 
-func (monitor *Monitor) getEthBlockNumber(needNumber uint64) {
+func (monitor *Monitor) CheckEthBlockNumber(tx string, needNumber uint64) bool {
 	tick := time.NewTicker(time.Second * time.Duration(monitor.ethGetBlockInterval))
 	for {
 		select {
@@ -898,13 +912,23 @@ func (monitor *Monitor) getEthBlockNumber(needNumber uint64) {
 			}
 
 			if cursorBlock > needNumber+uint64(monitor.ethConfirmCount) {
-				return
+
+				tx, err := monitor.ethClient.GetTransactionByHash(tx)
+
+				// 确认后，查不到tx，交易失败
+				if err == nil && tx == nil {
+					monitor.ErrorF("tx was replaced :%s", tx)
+
+					return false
+				}
+
+				return true
 			}
 		}
 	}
 }
 
-func (monitor *Monitor) getNeoBlockNumber(needNumber int64) {
+func (monitor *Monitor) CheckNeoBlockNumber(needNumber uint64) {
 	tick := time.NewTicker(time.Second * time.Duration(monitor.neoGetBlockInterval))
 	for {
 		select {
@@ -915,7 +939,7 @@ func (monitor *Monitor) getNeoBlockNumber(needNumber int64) {
 				continue
 			}
 
-			if cursorBlock > needNumber+monitor.neoConfirmCount {
+			if uint64(cursorBlock) > needNumber+uint64(monitor.neoConfirmCount) {
 				return
 			}
 		}
