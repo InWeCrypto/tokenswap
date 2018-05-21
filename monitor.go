@@ -40,20 +40,25 @@ func init() {
 // Monitor neo/eth tx event monitor
 type Monitor struct {
 	slf4go.Logger
-	neomq         gomq.Consumer
-	ethmq         gomq.Consumer
-	tokenswapdb   *xorm.Engine
-	ethdb         *xorm.Engine
-	neodb         *xorm.Engine
-	tncOfNEO      string
-	tncOfETH      string
-	ETHKeyAddress string
-	NEOKeyAddress string
-	ethClient     *ethrpc.Client
-	neoClient     *neorpc.Client
-	config        *config.Config
-	neo2ethtax    float64 // 转账费率
-	eth2neotax    float64
+	neomq               gomq.Consumer
+	ethmq               gomq.Consumer
+	tokenswapdb         *xorm.Engine
+	ethdb               *xorm.Engine
+	neodb               *xorm.Engine
+	tncOfNEO            string
+	tncOfETH            string
+	ETHKeyAddress       string
+	NEOKeyAddress       string
+	ethClient           *ethrpc.Client
+	neoClient           *neorpc.Client
+	config              *config.Config
+	neo2ethtax          float64 // 转账费率
+	eth2neotax          float64
+	ethConfirmCount     int64
+	ethGetBlockInterval int64
+
+	neoConfirmCount     int64
+	neoGetBlockInterval int64
 }
 
 // NewMonitor create new monitor
@@ -100,21 +105,25 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 	}
 
 	return &Monitor{
-		Logger:        slf4go.Get("tokenswap-server"),
-		neomq:         neomq,
-		ethmq:         ethmq,
-		tokenswapdb:   tokenswapdb,
-		ethdb:         ethdb,
-		neodb:         neodb,
-		tncOfETH:      conf.GetString("eth.tnc", ""),
-		tncOfNEO:      conf.GetString("neo.tnc", ""),
-		ETHKeyAddress: strings.ToLower(ethKey.Address),
-		NEOKeyAddress: neoKey.Address,
-		ethClient:     ethrpc.NewClient(conf.GetString("eth.node", "")),
-		neoClient:     neorpc.NewClient(conf.GetString("neo.node", "")),
-		neo2ethtax:    neo2ethtax,
-		eth2neotax:    eth2neotax,
-		config:        conf,
+		Logger:              slf4go.Get("tokenswap-server"),
+		neomq:               neomq,
+		ethmq:               ethmq,
+		tokenswapdb:         tokenswapdb,
+		ethdb:               ethdb,
+		neodb:               neodb,
+		tncOfETH:            conf.GetString("eth.tnc", ""),
+		tncOfNEO:            conf.GetString("neo.tnc", ""),
+		ETHKeyAddress:       strings.ToLower(ethKey.Address),
+		NEOKeyAddress:       neoKey.Address,
+		ethClient:           ethrpc.NewClient(conf.GetString("eth.node", "")),
+		neoClient:           neorpc.NewClient(conf.GetString("neo.node", "")),
+		neo2ethtax:          neo2ethtax,
+		eth2neotax:          eth2neotax,
+		config:              conf,
+		ethConfirmCount:     conf.GetInt64("tokenswap.ethConfirmCount", 12),
+		ethGetBlockInterval: conf.GetInt64("tokenswap.ethGetBlockInterval", 20),
+		neoConfirmCount:     conf.GetInt64("tokenswap.neoConfirmCount", 12),
+		neoGetBlockInterval: conf.GetInt64("tokenswap.neoGetBlockInterval", 10),
 	}, nil
 }
 
@@ -873,6 +882,42 @@ func (monitor *Monitor) waitEthTx(tx string, id int64) bool {
 			}
 		case <-timeOut:
 			return false
+		}
+	}
+}
+
+func (monitor *Monitor) getEthBlockNumber(needNumber uint64) {
+	tick := time.NewTicker(time.Second * time.Duration(monitor.ethGetBlockInterval))
+	for {
+		select {
+		case <-tick.C:
+			cursorBlock, err := monitor.ethClient.BlockNumber()
+			if err != nil {
+				monitor.ErrorF("eth BlockNumber err:%s", err.Error())
+				continue
+			}
+
+			if cursorBlock > needNumber+uint64(monitor.ethConfirmCount) {
+				return
+			}
+		}
+	}
+}
+
+func (monitor *Monitor) getNeoBlockNumber(needNumber int64) {
+	tick := time.NewTicker(time.Second * time.Duration(monitor.neoGetBlockInterval))
+	for {
+		select {
+		case <-tick.C:
+			cursorBlock, err := monitor.neoClient.GetBlockCount()
+			if err != nil {
+				monitor.ErrorF("eth BlockNumber err:%s", err.Error())
+				continue
+			}
+
+			if cursorBlock > needNumber+monitor.neoConfirmCount {
+				return
+			}
 		}
 	}
 }
