@@ -662,7 +662,7 @@ func (monitor *Monitor) updateSendOrderOutTxStatus(tx string) error {
 }
 
 func (monitor *Monitor) addSendOrderOutTx(id int64, tx string) error {
-	order := &SendOrder{ID: id, outTx: tx}
+	order := &SendOrder{ID: id, OutTx: tx}
 
 	update, err := monitor.tokenswapdb.Where(`status = 0 and id = ?`, id).Cols("out_tx").Update(order)
 

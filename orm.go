@@ -28,7 +28,7 @@ type SendOrder struct {
 	ID         int64     `xorm:"pk autoincr"`
 	OrderTx    string    `xorm:"order_tx index notnull"`
 	Status     int64     `xorm:"status"`
-	outTx      string    `xorm:"out_tx  index notnull"`
+	OutTx      string    `xorm:"out_tx  index notnull"`
 	To         string    `xorm:"notnull index(from_to_value)"`
 	Value      string    `xorm:"notnull index(from_to_value)"`
 	ToType     int32     `xorm:"to_type"` // 1 :ETH 2:NEO
