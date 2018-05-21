@@ -98,7 +98,7 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 
 	server := &WebServer{
 		engine:          engine,
-		Logger:          slf4go.Get("tokenswap-gin"),
+		Logger:          slf4go.Get("tokenswap-server"),
 		laddr:           conf.GetString("tokenswap.webladdr", ":8000"),
 		db:              tokenswapdb,
 		TXGenerate:      node,

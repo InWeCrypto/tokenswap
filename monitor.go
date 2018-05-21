@@ -100,7 +100,7 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 	}
 
 	return &Monitor{
-		Logger:        slf4go.Get("monitor"),
+		Logger:        slf4go.Get("tokenswap-server"),
 		neomq:         neomq,
 		ethmq:         ethmq,
 		tokenswapdb:   tokenswapdb,
