@@ -530,6 +530,10 @@ func (monitor *Monitor) sendETH(order *Order) (string, error) {
 		return "", err
 	}
 
+	if order.Retry > 0 {
+		gasPrice = ethgo.NewValue(big.NewFloat(float64(20)*float64(order.Retry+10)/float64(10)), ethgo.Shannon)
+	}
+
 	ethKey, err := readETHKeyStore(monitor.config, "eth.keystore", monitor.config.GetString("eth.keystorepassword", ""))
 
 	if err != nil {
@@ -675,6 +679,21 @@ func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64) err
 	return err
 }
 
+func (monitor *Monitor) updateEthSendOrderRetry(id int64, retry int32) error {
+	order := &SendOrder{ID: id, Retry: retry}
+
+	update, err := monitor.tokenswapdb.Where(`status = 0 and i_d = ?`, id).
+		Cols("retry", "nonce").Update(order)
+
+	if err != nil {
+		monitor.ErrorF("update send orders retry error :%s", err.Error())
+	}
+
+	monitor.InfoF("update send orders id:%d, retry: %d update:%d ", order.ID, order.Retry, update)
+
+	return err
+}
+
 func (monitor *Monitor) NeoSendMoniter() {
 	tick := time.NewTicker(time.Second * 30)
 
@@ -784,17 +803,28 @@ func (monitor *Monitor) EthSendMoniter() {
 						order.Value = v.Value
 						order.To = v.To
 						order.TX = v.OrderTx
+						order.Retry = v.Retry
 
-						tx, err := monitor.sendETH(order)
-						if err != nil {
-							monitor.ErrorF(" send ETH error :%s To:%s, value:%s", err.Error(), v.To, v.Value)
-							continue
-						}
+						for {
 
-						monitor.addSendOrderOutTx(v.ID, tx, 0)
+							tx, err := monitor.sendETH(order)
+							if err != nil {
+								monitor.ErrorF(" send ETH error :%s To:%s, value:%s", err.Error(), v.To, v.Value)
+								continue
+							}
 
-						if !monitor.waitEthTx(tx) {
-							continue
+							monitor.addSendOrderOutTx(v.ID, tx, 0)
+
+							if !monitor.waitEthTx(tx) {
+								monitor.DebugF("waitEthTx pending time out :%x", tx)
+
+								order.Retry++
+								monitor.updateEthSendOrderRetry(v.ID, order.Retry)
+
+								continue
+							}
+
+							break
 						}
 
 						err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
@@ -811,19 +841,30 @@ func (monitor *Monitor) EthSendMoniter() {
 }
 
 func (monitor *Monitor) waitEthTx(tx string) bool {
-	timeOut := time.After(time.Hour)
+	timeOut := time.After(time.Minute * 30)
+
+	monitor.DebugF("waitEthTx:%x", tx)
+
+	tick := time.NewTicker(time.Second * 60)
+
 	for {
 		select {
 		case inTx := <-ethTxChan:
 			if inTx == tx {
 				return true
 			}
+		case <-tick.C:
+			tx, err := monitor.ethClient.GetTransactionByHash(tx)
+
+			// 查不到tx
+			if err == nil && tx == nil {
+				monitor.ErrorF("tx was replaced :%s", tx)
+				return true
+			}
 		case <-timeOut:
 			return false
 		}
 	}
-
-	return false
 }
 
 // ToInvocationAddress neo wallet address to invocation address
