@@ -258,6 +258,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			monitor.DebugF("in_tx:(%s)", neoTx.TX)
 
 			if err := monitor.insertSendOrder(order, 1); err != nil {
+				monitor.ErrorF("insertSendOrder returned :%s", err.Error())
 				return false
 			}
 
