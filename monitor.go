@@ -495,7 +495,7 @@ func (monitor *Monitor) sendNEO(order *Order) (string, error) {
 
 	monitor.InfoF("send NEO-TNC success tx: %s  from: %s to: %s value: %s ", txId, monitor.NEOKeyAddress, order.To, order.Value)
 
-	return txId, nil
+	return "0x" + txId, nil
 }
 
 func (monitor *Monitor) sendETH(order *Order) (string, error) {
