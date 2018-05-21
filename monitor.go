@@ -642,7 +642,7 @@ func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
 func (monitor *Monitor) getSendOrder(ty int32) ([]*SendOrder, error) {
 	orders := make([]*SendOrder, 0)
 
-	err := monitor.tokenswapdb.Where(`status = 0 and to_type =?`, ty).OrderBy("value").Find(orders)
+	err := monitor.tokenswapdb.Where(`status = 0 and to_type =?`, ty).OrderBy("value").Find(&orders)
 
 	return orders, err
 }
