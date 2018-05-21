@@ -37,7 +37,7 @@ func main() {
 		return
 	}
 
-	if err := engine.Sync2(new(tokenswap.Order), new(tokenswap.Log)); err != nil {
+	if err := engine.Sync2(new(tokenswap.Order), new(tokenswap.Log), new(tokenswap.SendOrder)); err != nil {
 		logger.ErrorF("sync table schema error , %s", err)
 		return
 	}

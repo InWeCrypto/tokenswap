@@ -98,7 +98,7 @@ func NewWebServer(conf *config.Config) (*WebServer, error) {
 
 	server := &WebServer{
 		engine:          engine,
-		Logger:          slf4go.Get("tokenswap-gin"),
+		Logger:          slf4go.Get("tokenswap-server"),
 		laddr:           conf.GetString("tokenswap.webladdr", ":8000"),
 		db:              tokenswapdb,
 		TXGenerate:      node,
@@ -294,21 +294,21 @@ func (server *WebServer) CreateOrder(ctx *gin.Context) {
 	if strings.Index(from, "0x") >= 0 && len(from) == 42 {
 		res["Address"] = server.keyAddressOfETH
 
-		err := server.checkNEOBalance(int64(fx8value))
-		if err != nil {
-			ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
-			return
-		}
+		//		err := server.checkNEOBalance(int64(fx8value))
+		//		if err != nil {
+		//			ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
+		//			return
+		//		}
 	}
 
 	if strings.Index(to, "0x") >= 0 && len(to) == 42 {
 		res["Address"] = server.keyAddressOFNEO
 
-		err := server.checkETHBalance(int64(fx8value))
-		if err != nil {
-			ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
-			return
-		}
+		//		err := server.checkETHBalance(int64(fx8value))
+		//		if err != nil {
+		//			ctx.JSON(http.StatusOK, Response{1, err.Error(), nil})
+		//			return
+		//		}
 	}
 
 	res["Value"] = fx8value.String()

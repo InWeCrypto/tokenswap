@@ -31,6 +31,12 @@ import (
 
 const ETH_TNC_DECIAMLS = 8
 
+var ethTxChan chan string
+
+func init() {
+	ethTxChan = make(chan string, 10000)
+}
+
 // Monitor neo/eth tx event monitor
 type Monitor struct {
 	slf4go.Logger
@@ -94,7 +100,7 @@ func NewMonitor(conf *config.Config, neomq, ethmq gomq.Consumer) (*Monitor, erro
 	}
 
 	return &Monitor{
-		Logger:        slf4go.Get("monitor"),
+		Logger:        slf4go.Get("tokenswap-server"),
 		neomq:         neomq,
 		ethmq:         ethmq,
 		tokenswapdb:   tokenswapdb,
@@ -178,6 +184,8 @@ func (monitor *Monitor) neoMonitor() {
 func (monitor *Monitor) Run() {
 	go monitor.ethMonitor()
 	go monitor.neoMonitor()
+	go monitor.NeoSendMoniter()
+	go monitor.EthSendMoniter()
 }
 
 func (monitor *Monitor) handleNEOMessage(txid string) bool {
@@ -188,18 +196,18 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	err := monitor.neodb.Where(` "t_x" = ?`, txid).Find(&neoTxs)
 
 	if err != nil {
-		monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+		monitor.ErrorF("1 handle neo tx %s error, %s", txid, err)
 		return false
 	}
 
 	for _, neoTx := range neoTxs {
 		if neoTx.From == monitor.NEOKeyAddress && neoTx.Asset == monitor.tncOfNEO {
-			monitor.DebugF("checked neo tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
+			monitor.DebugF("1 checked neo tx (%s) from:%s  to:%s  value:%s  asset:%s", neoTx.TX, neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
 
 			order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 			if err != nil {
-				monitor.ErrorF("handle order in neo tx %s error, %s", txid, err)
+				monitor.ErrorF("2 handle order in neo tx %s error, %s", txid, err)
 				return false
 			}
 
@@ -213,7 +221,12 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			order.CompletedTime = time.Now()
 
 			if err := monitor.insertLogAndUpdate(log, order, "out_tx", "completed_time"); err != nil {
-				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				monitor.ErrorF("3 handle neo tx %s error, %s", txid, err)
+				return false
+			}
+
+			if err := monitor.updateSendOrderOutTxStatus(neoTx.TX); err != nil {
+				monitor.ErrorF("neo updateSendOrderOutTxStatus error, %s", txid, err)
 				return false
 			}
 
@@ -221,12 +234,12 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 
 		} else if neoTx.To == monitor.NEOKeyAddress && neoTx.Asset == monitor.tncOfNEO {
 
-			monitor.DebugF("checked neo tx  from:%s  to:%s  value:%s  asset:%s", neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
+			monitor.DebugF("2 checked neo tx (%s) from:%s  to:%s  value:%s  asset:%s", neoTx.TX, neoTx.From, neoTx.To, neoTx.Value, monitor.tncOfNEO)
 
 			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 			if err != nil {
-				monitor.ErrorF("handle order in neo tx %s error, %s", txid, err)
+				monitor.ErrorF("4 handle order in neo tx %s error, %s", txid, err)
 				return false
 			}
 
@@ -239,19 +252,28 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			}
 
 			if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
-				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				monitor.ErrorF("5 handle neo tx %s error, %s", txid, err)
 				return false
 			}
 
-			if err := monitor.sendETH(order); err != nil {
-				monitor.ErrorF("handle neo tx %s -- send TNC error %s", txid, err)
+			monitor.DebugF("in_tx:(%s)", neoTx.TX)
+
+			if err := monitor.insertSendOrder(order, 1); err != nil {
+				monitor.ErrorF("insertSendOrder returned :%s", err.Error())
 				return false
 			}
 
-			if err := monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value"); err != nil {
-				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
-				return false
-			}
+			monitor.DebugF("insertSendOrder  end %d", order.ID)
+
+			//			if err := monitor.sendETH(order); err != nil {
+			//				monitor.ErrorF("handle neo tx %s -- send TNC error %s", txid, err)
+			//				return false
+			//			}
+
+			//			if err := monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value"); err != nil {
+			//				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+			//				return false
+			//			}
 
 			return true
 		}
@@ -280,20 +302,23 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 	}
 
 	if !ok {
-		monitor.WarnF("handle eth tx %s -- not found", txid)
+		monitor.WarnF("1 handle eth tx %s -- not found", txid)
 		return true
 	}
 
 	if ethTx.From == monitor.ETHKeyAddress && ethTx.Asset == monitor.tncOfETH {
+
+		ethTxChan <- ethTx.TX
+
 		// complete order
 		value := monitor.parseEthValue(ethTx.Value)
 
-		monitor.DebugF("checked eth tx  from:%s  to:%s  value:%s  asset:%s", ethTx.From, ethTx.To, value, monitor.tncOfETH)
+		monitor.DebugF("1 checked eth tx (%s) from:%s  to:%s  value:%s  asset:%s", ethTx.TX, ethTx.From, ethTx.To, value, monitor.tncOfETH)
 
 		order, err := monitor.getOrderByToAddress(ethTx.To, value, ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 		if err != nil {
-			monitor.ErrorF("handle order in eth tx %s error, %s", txid, err)
+			monitor.ErrorF("2 handle order in eth tx %s error, %s", txid, err)
 			return false
 		}
 
@@ -307,7 +332,12 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		order.CompletedTime = time.Now()
 
 		if err := monitor.insertLogAndUpdate(log, order, "out_tx", "completed_time"); err != nil {
-			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
+			monitor.ErrorF("3 handle eth tx %s error, %s", txid, err)
+			return false
+		}
+
+		if err := monitor.updateSendOrderOutTxStatus(ethTx.TX); err != nil {
+			monitor.ErrorF("eth updateSendOrderOutTxStatus error, %s", txid, err)
 			return false
 		}
 
@@ -317,12 +347,12 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 
 		value := monitor.parseEthValue(ethTx.Value)
 
-		monitor.DebugF("checked eth tx  from:%s  to:%s  value:%s  asset:%s", ethTx.From, ethTx.To, value, monitor.tncOfETH)
+		monitor.DebugF("2 checked eth tx (%s)  from:%s  to:%s  value:%s  asset:%s", ethTx.TX, ethTx.From, ethTx.To, value, monitor.tncOfETH)
 
 		order, err := monitor.getOrderByFromAddress(ethTx.From, value, ethTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 		if err != nil {
-			monitor.ErrorF("handle order in eth tx  %s error, %s", txid, err)
+			monitor.ErrorF("4 handle order in eth tx  %s error, %s", txid, err)
 			return false
 		}
 
@@ -335,19 +365,23 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		}
 
 		if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
-			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
+			monitor.ErrorF("5 handle eth tx %s error, %s", txid, err)
 			return false
 		}
 
-		if err := monitor.sendNEO(order); err != nil {
-			monitor.ErrorF("handle eth tx %s -- send TNC error %s", txid, err)
+		if err := monitor.insertSendOrder(order, 2); err != nil {
 			return false
 		}
 
-		if err := monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value"); err != nil {
-			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
-			return false
-		}
+		//		if err := monitor.sendNEO(order); err != nil {
+		//			monitor.ErrorF("handle eth tx %s -- send TNC error %s", txid, err)
+		//			return false
+		//		}
+
+		//		if err := monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value"); err != nil {
+		//			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
+		//			return false
+		//		}
 
 		return true
 	}
@@ -383,12 +417,12 @@ func (monitor *Monitor) insertLogAndUpdate(log *Log, order *Order, cls ...string
 	return nil
 }
 
-func (monitor *Monitor) sendNEO(order *Order) error {
+func (monitor *Monitor) sendNEO(order *Order) (string, error) {
 
 	amount, b := ethmath.ParseUint64(order.Value)
 	if !b {
 		monitor.ErrorF("ParseUint64  %s  err  ", order.Value)
-		return errors.New("ParseUint64 err")
+		return "", errors.New("ParseUint64 err")
 	}
 
 	taxAmount := int64(float64(amount) * monitor.eth2neotax)
@@ -403,7 +437,7 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 
 	if err != nil {
 		monitor.ErrorF("read neo key  error %s", err)
-		return err
+		return "", err
 	}
 
 	from := ToInvocationAddress(key.Address)
@@ -413,7 +447,7 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 	scriptHash, err := hex.DecodeString(strings.TrimPrefix(monitor.tncOfNEO, "0x"))
 	if err != nil {
 		monitor.ErrorF("DecodeString  error %s", err)
-		return err
+		return "", err
 	}
 
 	scriptHash = reverseBytes(scriptHash)
@@ -421,7 +455,7 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 	bytesOfFrom, err := hex.DecodeString(from)
 	if err != nil {
 		monitor.ErrorF("DecodeString  error %s", err)
-		return err
+		return "", err
 	}
 
 	bytesOfFrom = reverseBytes(bytesOfFrom)
@@ -429,7 +463,7 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 	bytesOfTo, err := hex.DecodeString(to)
 	if err != nil {
 		monitor.ErrorF("DecodeString  error %s", err)
-		return err
+		return "", err
 	}
 
 	bytesOfTo = reverseBytes(bytesOfTo)
@@ -437,8 +471,8 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 	script, err := nep5.Transfer(scriptHash, bytesOfFrom, bytesOfTo, transferValue)
 
 	if err != nil {
-		monitor.ErrorF("Transfer  error:%s,  to:%s  value: %v", err, order.To, order.Value)
-		return err
+		monitor.ErrorF("Transfer  error:%s,  to:%s  value: %s", err, order.To, order.Value)
+		return "", err
 	}
 
 	nonce, _ := time.Now().MarshalBinary()
@@ -448,31 +482,28 @@ func (monitor *Monitor) sendNEO(order *Order) error {
 	rawtx, txId, err := tx.Tx().Sign(key.PrivateKey)
 
 	if err != nil {
-		monitor.ErrorF("Sign  error:%s,   to:%s  value: %v", err, order.To, order.Value)
-		return err
+		monitor.ErrorF("Sign  error:%s,   to:%s  value: %s", err, order.To, order.Value)
+		return "", err
 	}
 
 	status, err := monitor.neoClient.SendRawTransaction(rawtx)
 
 	if err != nil || !status {
-		monitor.ErrorF("SendRawTransaction  error:%s,  to:%s  value: %v", err, order.To, order.Value)
-		return err
+		monitor.ErrorF("SendRawTransaction  error:%s,  to:%s  value: %s", err, order.To, order.Value)
+		return "", err
 	}
 
-	monitor.InfoF("from : %s ", monitor.NEOKeyAddress)
-	monitor.InfoF("to   : %s ", order.To)
-	monitor.InfoF("value: %v ", order.Value)
-	monitor.InfoF("tx   : %s ", txId)
+	monitor.InfoF("send NEO-TNC success tx: %s  from: %s to: %s value: %s ", txId, monitor.NEOKeyAddress, order.To, order.Value)
 
-	return nil
+	return "0x" + txId, nil
 }
 
-func (monitor *Monitor) sendETH(order *Order) error {
+func (monitor *Monitor) sendETH(order *Order) (string, error) {
 
 	amount, b := ethmath.ParseUint64(order.Value)
 	if !b {
 		monitor.ErrorF("ParseUint64  %s  err  ", order.Value)
-		return errors.New("ParseUint64 err")
+		return "", errors.New("ParseUint64 err")
 	}
 
 	taxAmount := int64(float64(amount) * monitor.neo2ethtax)
@@ -485,8 +516,8 @@ func (monitor *Monitor) sendETH(order *Order) error {
 
 	codes, err := erc20.Transfer(order.To, hex.EncodeToString(transferValue.Bytes()))
 	if err != nil {
-		monitor.ErrorF("get erc20.Transfer(%s,%v) code err: %v ", order.To, order.Value, err)
-		return err
+		monitor.ErrorF("get erc20.Transfer(%s,%s) code err: %s ", order.To, order.Value, err.Error())
+		return "", err
 	}
 
 	gasLimits := big.NewInt(65000)
@@ -494,42 +525,43 @@ func (monitor *Monitor) sendETH(order *Order) error {
 
 	nonce, err := monitor.ethClient.Nonce(monitor.ETHKeyAddress)
 	if err != nil {
-		monitor.ErrorF("get Nonce   (%s,%v)  err: %v ", order.To, order.Value, err)
-		return err
+		monitor.ErrorF("get Nonce   (%s,%s)  err: %s ", order.To, order.Value, err.Error())
+		return "", err
+	}
+
+	if order.Retry > 0 {
+		gasPrice = ethgo.NewValue(big.NewFloat(float64(20)*float64(order.Retry+10)/float64(10)), ethgo.Shannon)
 	}
 
 	ethKey, err := readETHKeyStore(monitor.config, "eth.keystore", monitor.config.GetString("eth.keystorepassword", ""))
 
 	if err != nil {
 		monitor.ErrorF("read eth key error %s", err)
-		return err
+		return "", err
 	}
 
 	ntx := ethtx.NewTx(nonce, monitor.tncOfETH, nil, gasPrice, gasLimits, codes)
 	err = ntx.Sign(ethKey.PrivateKey)
 	if err != nil {
-		monitor.ErrorF("Sign  (%s,%v)  err: %v ", order.To, order.Value, err)
-		return err
+		monitor.ErrorF("Sign  (%s,%s)  err: %s ", order.To, order.Value, err.Error())
+		return "", err
 	}
 
 	rawtx, err := ntx.Encode()
 	if err != nil {
-		monitor.ErrorF("Encode  (%s,%v)  err: %v ", order.To, order.Value, err)
-		return err
+		monitor.ErrorF("Encode  (%s,%s)  err: %s ", order.To, order.Value, err.Error())
+		return "", err
 	}
 
 	tx, err := monitor.ethClient.SendRawTransaction(rawtx)
 	if err != nil {
-		monitor.ErrorF("SendRawTransaction  (%s,%v)  err: %v ", order.To, order.Value, err)
-		return err
+		monitor.ErrorF("SendRawTransaction  (%s,%s)  err: %s ", order.To, order.Value, err.Error())
+		return "", err
 	}
 
-	monitor.InfoF("from : %s ", monitor.ETHKeyAddress)
-	monitor.InfoF("to   : %s ", order.To)
-	monitor.InfoF("value: %v ", order.Value)
-	monitor.InfoF("tx   : %s ", tx)
+	monitor.InfoF("send ETH-TNC success tx: %s  from: %s to: %s value: %s ", tx, monitor.ETHKeyAddress, order.To, order.Value)
 
-	return nil
+	return tx, nil
 }
 
 // getOrder .
@@ -566,7 +598,7 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 	}
 
 	ok, err := monitor.tokenswapdb.Where(
-		`"from" = ? and "value" = ? and "create_time" < ? `+where, from, value, createTime).Get(order)
+		`"from" = ? and "value" =? and "create_time" < ? `+where, from, value, createTime).Get(order)
 
 	if err != nil {
 		monitor.ErrorF("query from order(%s,%s,%s) error, %s", from, value, where, err)
@@ -579,6 +611,265 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 	}
 
 	return order, nil
+}
+
+func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
+
+	monitor.DebugF("insertSendOrder %d", order.ID)
+
+	if order == nil {
+		return nil
+	}
+
+	sendOrder := new(SendOrder)
+	sendOrder.OrderTx = order.TX
+	sendOrder.To = order.To
+	sendOrder.Value = order.Value
+	sendOrder.Status = 0
+	sendOrder.ToType = ty
+	sendOrder.CreateTime = time.Now()
+
+	affected, err := monitor.tokenswapdb.InsertOne(sendOrder)
+	if err != nil {
+		monitor.ErrorF("insert new send order err: %s, %d", err.Error(), order.ID)
+	}
+
+	monitor.InfoF("insert new send order:%d,affected:%d", order.ID, affected)
+
+	return err
+}
+
+func (monitor *Monitor) getSendOrder(ty int32) ([]*SendOrder, error) {
+	orders := make([]*SendOrder, 0)
+
+	err := monitor.tokenswapdb.Where(`status = 0 and to_type =? `, ty).OrderBy(`LENGTH("value"), "value"`).Limit(100).Find(&orders)
+
+	return orders, err
+}
+
+func (monitor *Monitor) updateSendOrderOutTxStatus(tx string) error {
+	order := &SendOrder{Status: 1}
+
+	update, err := monitor.tokenswapdb.Where(`status = 2 and out_tx = ?`, tx).Cols("status").Update(order)
+
+	if err != nil {
+		monitor.ErrorF("update send orders out_tx status error :%s,out_tx:%s", err.Error(), tx)
+		return err
+	}
+
+	monitor.InfoF("update send orders out_tx status out_tx: %s update:%d", tx, update)
+
+	return nil
+}
+
+func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64) error {
+	order := &SendOrder{ID: id, OutTx: tx, Status: status}
+
+	update, err := monitor.tokenswapdb.Where(`status = 0 and i_d = ?`, id).Cols("out_tx", "status").Update(order)
+
+	if err != nil {
+		monitor.ErrorF("add send orders out_tx error :%s ,tx:%s", err.Error(), tx)
+	}
+
+	monitor.InfoF("add send orders out_tx : %s update:%d ", tx, update)
+
+	return err
+}
+
+func (monitor *Monitor) updateEthSendOrderRetry(id int64, retry int32) error {
+	order := &SendOrder{ID: id, Retry: retry, Status: 0}
+
+	update, err := monitor.tokenswapdb.Where(`status = 2 and i_d = ?`, id).
+		Cols("retry", "status").Update(order)
+
+	if err != nil {
+		monitor.ErrorF("update send orders retry error :%s", err.Error())
+	}
+
+	monitor.InfoF("update send orders id:%d, retry: %d update:%d ", order.ID, order.Retry, update)
+
+	return err
+}
+
+func (monitor *Monitor) NeoSendMoniter() {
+	tick := time.NewTicker(time.Second * 30)
+
+	for {
+		select {
+		case <-tick.C:
+
+			sendOrders, err := monitor.getSendOrder(2)
+
+			if err != nil {
+
+				monitor.ErrorF("query send orders error :%s", err.Error())
+
+			} else {
+
+				var tokenBalance uint64
+				var err error
+
+				if len(sendOrders) > 0 {
+					from := ToInvocationAddress(monitor.NEOKeyAddress)
+					tokenBalance, err = monitor.neoClient.Nep5BalanceOf(monitor.tncOfNEO, from)
+					if err != nil {
+						monitor.ErrorF("get neo(%s) balance err: %s ", monitor.NEOKeyAddress, err.Error())
+						continue
+					}
+					monitor.InfoF("NEO-TNC wallet(%s)  balance :%d !", monitor.NEOKeyAddress, tokenBalance)
+
+					for _, v := range sendOrders {
+						amount, b := ethmath.ParseUint64(v.Value)
+						if !b {
+							monitor.ErrorF("send neo ParseUint64  %s  err  ", v.Value)
+							continue
+						}
+
+						if tokenBalance < uint64(amount) {
+							monitor.ErrorF("NEO-TNC wallet(%s)  balance is  not enough !", monitor.NEOKeyAddress)
+							break
+						}
+
+						order := new(Order)
+						order.Value = v.Value
+						order.To = v.To
+						order.TX = v.OrderTx
+
+						tx, err := monitor.sendNEO(order)
+						if err != nil {
+							monitor.ErrorF(" send NEO error :%s To:%s, value:%s", err.Error(), v.To, v.Value)
+							continue
+						}
+
+						monitor.addSendOrderOutTx(v.ID, tx, 2)
+
+						err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
+						if err != nil {
+							monitor.ErrorF(" update send NEO log error :%s ", err.Error())
+						}
+
+						tokenBalance -= amount
+					}
+				}
+			}
+		}
+	}
+}
+
+func (monitor *Monitor) EthSendMoniter() {
+	tick := time.NewTicker(time.Second * 30)
+
+	for {
+		select {
+		case <-tick.C:
+
+			sendOrders, err := monitor.getSendOrder(1)
+
+			if err != nil {
+
+				monitor.ErrorF("query send orders error :%s", err.Error())
+
+			} else {
+				var balance *big.Int
+				var err error
+
+				if len(sendOrders) > 0 {
+					balance, err = monitor.ethClient.GetTokenBalance(monitor.tncOfETH, monitor.ETHKeyAddress)
+					if err != nil {
+						monitor.ErrorF("get eth(%s) balance err: %s ", monitor.ETHKeyAddress, err.Error())
+						continue
+					}
+
+					monitor.InfoF("ETH-TNC wallet(%s)  balance :%s !", monitor.ETHKeyAddress, balance.String())
+
+					for _, v := range sendOrders {
+						amount, b := ethmath.ParseUint64(v.Value)
+						if !b {
+							monitor.ErrorF("send eth ParseUint64  %s  err  ", v.Value)
+							continue
+						}
+
+						bigAmount := big.NewInt(int64(amount))
+
+						if balance.Cmp(bigAmount) < 0 {
+							monitor.ErrorF("ETH-TNC wallet(%s)  balance is  not enough !", monitor.ETHKeyAddress)
+							break
+						}
+
+						order := new(Order)
+						order.Value = v.Value
+						order.To = v.To
+						order.TX = v.OrderTx
+						order.Retry = v.Retry
+
+						sendSuccess := false
+						for {
+
+							tx, err := monitor.sendETH(order)
+							if err != nil {
+								monitor.ErrorF(" send ETH error :%s To:%s, value:%s", err.Error(), v.To, v.Value)
+								break
+							}
+
+							err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
+							if err != nil {
+								monitor.ErrorF(" update send NEO log error :%s ", err.Error())
+							}
+
+							monitor.addSendOrderOutTx(v.ID, tx, 2)
+
+							if !monitor.waitEthTx(tx, v.ID) {
+								monitor.DebugF("waitEthTx pending time out :%x", tx)
+
+								order.Retry++
+								monitor.updateEthSendOrderRetry(v.ID, order.Retry)
+
+								continue
+							}
+
+							sendSuccess = true
+							break
+
+						}
+
+						if sendSuccess {
+							balance.Sub(balance, bigAmount)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (monitor *Monitor) waitEthTx(tx string, id int64) bool {
+	timeOut := time.After(time.Minute * 30)
+
+	monitor.DebugF("waitEthTx:%s", tx)
+
+	tick := time.NewTicker(time.Second * 60)
+
+	for {
+		select {
+		case inTx := <-ethTxChan:
+			if inTx == tx {
+				return true
+			}
+		case <-tick.C:
+			tx, err := monitor.ethClient.GetTransactionByHash(tx)
+
+			// 查不到tx
+			if err == nil && tx == nil {
+				monitor.ErrorF("tx was replaced :%s", tx)
+
+				monitor.updateEthSendOrderRetry(id, 0)
+
+				return true
+			}
+		case <-timeOut:
+			return false
+		}
+	}
 }
 
 // ToInvocationAddress neo wallet address to invocation address
