@@ -196,7 +196,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 	err := monitor.neodb.Where(` "t_x" = ?`, txid).Find(&neoTxs)
 
 	if err != nil {
-		monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+		monitor.ErrorF("1 handle neo tx %s error, %s", txid, err)
 		return false
 	}
 
@@ -207,7 +207,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			order, err := monitor.getOrderByToAddress(neoTx.To, neoTx.Value, neoTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 			if err != nil {
-				monitor.ErrorF("handle order in neo tx %s error, %s", txid, err)
+				monitor.ErrorF("2 handle order in neo tx %s error, %s", txid, err)
 				return false
 			}
 
@@ -221,7 +221,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			order.CompletedTime = time.Now()
 
 			if err := monitor.insertLogAndUpdate(log, order, "out_tx", "completed_time"); err != nil {
-				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				monitor.ErrorF("3 handle neo tx %s error, %s", txid, err)
 				return false
 			}
 
@@ -238,7 +238,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			order, err := monitor.getOrderByFromAddress(neoTx.From, neoTx.Value, neoTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 			if err != nil {
-				monitor.ErrorF("handle order in neo tx %s error, %s", txid, err)
+				monitor.ErrorF("4 handle order in neo tx %s error, %s", txid, err)
 				return false
 			}
 
@@ -251,7 +251,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			}
 
 			if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
-				monitor.ErrorF("handle neo tx %s error, %s", txid, err)
+				monitor.ErrorF("5 handle neo tx %s error, %s", txid, err)
 				return false
 			}
 
@@ -296,7 +296,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 	}
 
 	if !ok {
-		monitor.WarnF("handle eth tx %s -- not found", txid)
+		monitor.WarnF("1 handle eth tx %s -- not found", txid)
 		return true
 	}
 
@@ -312,7 +312,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		order, err := monitor.getOrderByToAddress(ethTx.To, value, ethTx.CreateTime, ` "in_tx" != '' and  "out_tx" = '' `)
 
 		if err != nil {
-			monitor.ErrorF("handle order in eth tx %s error, %s", txid, err)
+			monitor.ErrorF("2 handle order in eth tx %s error, %s", txid, err)
 			return false
 		}
 
@@ -326,7 +326,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		order.CompletedTime = time.Now()
 
 		if err := monitor.insertLogAndUpdate(log, order, "out_tx", "completed_time"); err != nil {
-			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
+			monitor.ErrorF("3 handle eth tx %s error, %s", txid, err)
 			return false
 		}
 
@@ -345,7 +345,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		order, err := monitor.getOrderByFromAddress(ethTx.From, value, ethTx.CreateTime, ` "in_tx" = '' and  "out_tx" = '' `)
 
 		if err != nil {
-			monitor.ErrorF("handle order in eth tx  %s error, %s", txid, err)
+			monitor.ErrorF("4 handle order in eth tx  %s error, %s", txid, err)
 			return false
 		}
 
@@ -358,7 +358,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		}
 
 		if err := monitor.insertLogAndUpdate(log, order, "in_tx"); err != nil {
-			monitor.ErrorF("handle eth tx %s error, %s", txid, err)
+			monitor.ErrorF("5 handle eth tx %s error, %s", txid, err)
 			return false
 		}
 
@@ -626,9 +626,7 @@ func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
 		monitor.ErrorF("insert new send order err: %v, %v", err, order)
 	}
 
-	if affected > 0 {
-		monitor.InfoF("insert new send order:%v", order)
-	}
+	monitor.InfoF("insert new send order:%v,affected:%d", order, affected)
 
 	return err
 }
