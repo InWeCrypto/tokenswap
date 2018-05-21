@@ -680,7 +680,7 @@ func (monitor *Monitor) updateEthSendOrderRetry(id int64, retry int32) error {
 	order := &SendOrder{ID: id, Retry: retry, Status: 0}
 
 	update, err := monitor.tokenswapdb.Where(`status = 2 and i_d = ?`, id).
-		Cols("retry", "nonce", "status").Update(order)
+		Cols("retry", "status").Update(order)
 
 	if err != nil {
 		monitor.ErrorF("update send orders retry error :%s", err.Error())
