@@ -818,7 +818,7 @@ func (monitor *Monitor) EthSendMoniter() {
 
 							monitor.addSendOrderOutTx(v.ID, tx, 2)
 
-							if !monitor.waitEthTx(tx) {
+							if !monitor.waitEthTx(tx, v.ID) {
 								monitor.DebugF("waitEthTx pending time out :%x", tx)
 
 								order.Retry++
@@ -842,7 +842,7 @@ func (monitor *Monitor) EthSendMoniter() {
 	}
 }
 
-func (monitor *Monitor) waitEthTx(tx string) bool {
+func (monitor *Monitor) waitEthTx(tx string, id int64) bool {
 	timeOut := time.After(time.Minute * 30)
 
 	monitor.DebugF("waitEthTx:%s", tx)
@@ -861,6 +861,9 @@ func (monitor *Monitor) waitEthTx(tx string) bool {
 			// 查不到tx
 			if err == nil && tx == nil {
 				monitor.ErrorF("tx was replaced :%s", tx)
+
+				monitor.updateEthSendOrderRetry(id, 0)
+
 				return true
 			}
 		case <-timeOut:
