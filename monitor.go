@@ -661,10 +661,10 @@ func (monitor *Monitor) updateSendOrderOutTxStatus(tx string) error {
 	return err
 }
 
-func (monitor *Monitor) addSendOrderOutTx(id int64, tx string) error {
-	order := &SendOrder{ID: id, OutTx: tx}
+func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64) error {
+	order := &SendOrder{ID: id, OutTx: tx, Status: status}
 
-	update, err := monitor.tokenswapdb.Where(`status = 0 and i_d = ?`, id).Cols("out_tx").Update(order)
+	update, err := monitor.tokenswapdb.Where(`status = 0 and i_d = ?`, id).Cols("out_tx", "status").Update(order)
 
 	if err != nil {
 		monitor.ErrorF("add send orders out_tx error :%s ,tx:%s", err.Error(), tx)
@@ -725,7 +725,7 @@ func (monitor *Monitor) NeoSendMoniter() {
 							continue
 						}
 
-						monitor.addSendOrderOutTx(v.ID, tx)
+						monitor.addSendOrderOutTx(v.ID, tx, 1)
 
 						err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
 						if err != nil {
@@ -791,7 +791,7 @@ func (monitor *Monitor) EthSendMoniter() {
 							continue
 						}
 
-						monitor.addSendOrderOutTx(v.ID, tx)
+						monitor.addSendOrderOutTx(v.ID, tx, 0)
 
 						if !monitor.waitEthTx(tx) {
 							continue
