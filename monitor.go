@@ -184,6 +184,8 @@ func (monitor *Monitor) neoMonitor() {
 func (monitor *Monitor) Run() {
 	go monitor.ethMonitor()
 	go monitor.neoMonitor()
+	go monitor.NeoSendMoniter()
+	go monitor.EthSendMoniter()
 }
 
 func (monitor *Monitor) handleNEOMessage(txid string) bool {
@@ -674,6 +676,13 @@ func (monitor *Monitor) NeoSendMoniter() {
 		select {
 		case <-tick.C:
 
+			from := ToInvocationAddress(monitor.NEOKeyAddress)
+			tokenBalance, err := monitor.neoClient.Nep5BalanceOf(monitor.tncOfNEO, from)
+			if err != nil {
+				monitor.ErrorF("get neo(%s) balance err: %v ", monitor.NEOKeyAddress, err)
+				continue
+			}
+
 			sendOrders, err := monitor.getSendOrder(2)
 
 			if err != nil {
@@ -683,6 +692,17 @@ func (monitor *Monitor) NeoSendMoniter() {
 			} else {
 
 				for _, v := range sendOrders {
+					amount, b := ethmath.ParseUint64(v.Value)
+					if !b {
+						monitor.ErrorF("send neo ParseUint64  %s  err  ", v.Value)
+						continue
+					}
+
+					if tokenBalance < uint64(amount) {
+						monitor.ErrorF("NEO-TNC wallet(%s)  balance is  not enough !", monitor.NEOKeyAddress)
+						continue
+					}
+
 					order := new(Order)
 					order.Value = v.Value
 					order.To = v.To
@@ -700,6 +720,8 @@ func (monitor *Monitor) NeoSendMoniter() {
 					if err != nil {
 						monitor.ErrorF(" update send NEO log error :%v ", err)
 					}
+
+					tokenBalance -= amount
 				}
 			}
 		}
@@ -713,6 +735,12 @@ func (monitor *Monitor) EthSendMoniter() {
 		select {
 		case <-tick.C:
 
+			balance, err := monitor.ethClient.GetTokenBalance(monitor.tncOfETH, monitor.ETHKeyAddress)
+			if err != nil {
+				monitor.ErrorF("get eth(%s) balance err: %v ", monitor.ETHKeyAddress, err)
+				continue
+			}
+
 			sendOrders, err := monitor.getSendOrder(1)
 
 			if err != nil {
@@ -722,6 +750,19 @@ func (monitor *Monitor) EthSendMoniter() {
 			} else {
 
 				for _, v := range sendOrders {
+					amount, b := ethmath.ParseUint64(v.Value)
+					if !b {
+						monitor.ErrorF("send eth ParseUint64  %s  err  ", v.Value)
+						continue
+					}
+
+					bigAmount := big.NewInt(int64(amount))
+
+					if balance.Cmp(bigAmount) < 0 {
+						monitor.ErrorF("ETH-TNC wallet(%s)  balance is  not enough !", monitor.NEOKeyAddress)
+						continue
+					}
+
 					order := new(Order)
 					order.Value = v.Value
 					order.To = v.To
@@ -743,6 +784,8 @@ func (monitor *Monitor) EthSendMoniter() {
 					if err != nil {
 						monitor.ErrorF(" update send NEO log error :%v ", err)
 					}
+
+					balance.Sub(balance, bigAmount)
 				}
 			}
 		}
