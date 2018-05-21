@@ -29,7 +29,7 @@ type Log struct {
 type SendOrder struct {
 	ID         int64     `xorm:"pk autoincr"`
 	OrderTx    string    `xorm:"order_tx index notnull"`
-	Status     int64     `xorm:"status  index(to_type_status)"`
+	Status     int64     `xorm:"status  index(to_type_status)"` // 0 未处理 1:发送成功 2:发送中
 	OutTx      string    `xorm:"out_tx  index notnull"`
 	To         string    `xorm:"notnull index(from_to_value)"`
 	Value      string    `xorm:"notnull index(from_to_value)"`

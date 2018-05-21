@@ -741,7 +741,7 @@ func (monitor *Monitor) NeoSendMoniter() {
 							continue
 						}
 
-						monitor.addSendOrderOutTx(v.ID, tx, 1)
+						monitor.addSendOrderOutTx(v.ID, tx, 2)
 
 						err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
 						if err != nil {
@@ -810,7 +810,7 @@ func (monitor *Monitor) EthSendMoniter() {
 								continue
 							}
 
-							monitor.addSendOrderOutTx(v.ID, tx, 0)
+							monitor.addSendOrderOutTx(v.ID, tx, 2)
 
 							if !monitor.waitEthTx(tx) {
 								monitor.DebugF("waitEthTx pending time out :%x", tx)
