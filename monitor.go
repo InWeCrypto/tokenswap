@@ -261,6 +261,8 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 				return false
 			}
 
+			monitor.DebugF("insertSendOrder  end %d", order.ID)
+
 			//			if err := monitor.sendETH(order); err != nil {
 			//				monitor.ErrorF("handle neo tx %s -- send TNC error %s", txid, err)
 			//				return false
@@ -612,7 +614,7 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 
 func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
 
-	monitor.DebugF("insertSendOrder ----:%v", order)
+	monitor.DebugF("insertSendOrder %d", order.ID)
 
 	if order == nil {
 		return nil
