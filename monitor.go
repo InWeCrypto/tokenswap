@@ -642,7 +642,10 @@ func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
 func (monitor *Monitor) getSendOrder(ty int32) ([]*SendOrder, error) {
 	orders := make([]*SendOrder, 0)
 
-	err := monitor.tokenswapdb.Where(`status = 0 and to_type =? `, ty).OrderBy(`LENGTH("value"), "value"`).Limit(100).Find(&orders)
+	err := monitor.tokenswapdb.Where(`status = 0 and to_type =? or status = -1`, ty).
+		OrderBy(`LENGTH("value"), "value"`).
+		Limit(100).
+		Find(&orders)
 
 	return orders, err
 }
@@ -662,10 +665,10 @@ func (monitor *Monitor) updateSendOrderOutTxStatus(tx string) error {
 	return nil
 }
 
-func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64) error {
-	order := &SendOrder{ID: id, OutTx: tx, Status: status}
+func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64, retry int32) error {
+	order := &SendOrder{ID: id, OutTx: tx, Status: status, Retry: retry}
 
-	update, err := monitor.tokenswapdb.Where(`status = 0 and i_d = ?`, id).Cols("out_tx", "status").Update(order)
+	update, err := monitor.tokenswapdb.Where(`status = 0 or status = -1 and i_d = ?`, id).Cols("out_tx", "status", "retry").Update(order)
 
 	if err != nil {
 		monitor.ErrorF("add send orders out_tx error :%s ,tx:%s", err.Error(), tx)
@@ -679,7 +682,7 @@ func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64) err
 func (monitor *Monitor) updateEthSendOrderRetry(id int64, retry int32) error {
 	order := &SendOrder{ID: id, Retry: retry, Status: 0}
 
-	update, err := monitor.tokenswapdb.Where(`status = 2 and i_d = ?`, id).
+	update, err := monitor.tokenswapdb.Where(`status = -1 and i_d = ?`, id).
 		Cols("retry", "status").Update(order)
 
 	if err != nil {
@@ -741,7 +744,7 @@ func (monitor *Monitor) NeoSendMoniter() {
 							continue
 						}
 
-						monitor.addSendOrderOutTx(v.ID, tx, 2)
+						monitor.addSendOrderOutTx(v.ID, tx, 2, order.Retry)
 
 						err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
 						if err != nil {
@@ -816,16 +819,18 @@ func (monitor *Monitor) EthSendMoniter() {
 								monitor.ErrorF(" update send NEO log error :%s ", err.Error())
 							}
 
-							monitor.addSendOrderOutTx(v.ID, tx, 2)
+							order.Retry++
+
+							// pending中
+							monitor.addSendOrderOutTx(v.ID, tx, -1, order.Retry)
 
 							if !monitor.waitEthTx(tx, v.ID) {
 								monitor.DebugF("waitEthTx pending time out :%x", tx)
-
-								order.Retry++
-								monitor.updateEthSendOrderRetry(v.ID, order.Retry)
-
 								continue
 							}
+
+							// 发送中
+							monitor.addSendOrderOutTx(v.ID, tx, 2, order.Retry)
 
 							sendSuccess = true
 							break
