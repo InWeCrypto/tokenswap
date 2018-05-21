@@ -624,7 +624,7 @@ func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
 	sendOrder.ToType = ty
 	sendOrder.CreateTime = time.Now()
 
-	affected, err := monitor.tokenswapdb.Insert(sendOrder)
+	affected, err := monitor.tokenswapdb.InsertOne(sendOrder)
 	if err != nil {
 		monitor.ErrorF("insert new send order err: %v, %v", err, order)
 	}
