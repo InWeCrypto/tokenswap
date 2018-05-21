@@ -609,6 +609,9 @@ func (monitor *Monitor) getOrderByFromAddress(from, value string, createTime tim
 }
 
 func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
+
+	monitor.DebugF("insertSendOrder ----:%v", order)
+
 	if order == nil {
 		return nil
 	}
