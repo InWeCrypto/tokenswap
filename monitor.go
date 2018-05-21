@@ -730,7 +730,7 @@ func (monitor *Monitor) NeoSendMoniter() {
 
 						if tokenBalance < uint64(amount) {
 							monitor.ErrorF("NEO-TNC wallet(%s)  balance is  not enough !", monitor.NEOKeyAddress)
-							continue
+							break
 						}
 
 						order := new(Order)
@@ -796,7 +796,7 @@ func (monitor *Monitor) EthSendMoniter() {
 
 						if balance.Cmp(bigAmount) < 0 {
 							monitor.ErrorF("ETH-TNC wallet(%s)  balance is  not enough !", monitor.ETHKeyAddress)
-							continue
+							break
 						}
 
 						order := new(Order)
