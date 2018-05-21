@@ -226,6 +226,7 @@ func (monitor *Monitor) handleNEOMessage(txid string) bool {
 			}
 
 			if err := monitor.updateSendOrderOutTxStatus(neoTx.TX); err != nil {
+				monitor.ErrorF("neo updateSendOrderOutTxStatus error, %s", txid, err)
 				return false
 			}
 
@@ -336,6 +337,7 @@ func (monitor *Monitor) handleETHMessage(txid string) bool {
 		}
 
 		if err := monitor.updateSendOrderOutTxStatus(ethTx.TX); err != nil {
+			monitor.ErrorF("eth updateSendOrderOutTxStatus error, %s", txid, err)
 			return false
 		}
 
@@ -491,10 +493,7 @@ func (monitor *Monitor) sendNEO(order *Order) (string, error) {
 		return "", err
 	}
 
-	monitor.InfoF("from : %s ", monitor.NEOKeyAddress)
-	monitor.InfoF("to   : %s ", order.To)
-	monitor.InfoF("value: %s ", order.Value)
-	monitor.InfoF("tx   : %s ", txId)
+	monitor.InfoF("send NEO-TNC success tx: %s  from: %s to: %s value: %s ", txId, monitor.NEOKeyAddress, order.To, order.Value)
 
 	return txId, nil
 }
@@ -560,10 +559,7 @@ func (monitor *Monitor) sendETH(order *Order) (string, error) {
 		return "", err
 	}
 
-	monitor.InfoF("from : %s ", monitor.ETHKeyAddress)
-	monitor.InfoF("to   : %s ", order.To)
-	monitor.InfoF("value: %s ", order.Value)
-	monitor.InfoF("tx   : %s ", tx)
+	monitor.InfoF("send ETH-TNC success tx: %s  from: %s to: %s value: %s ", tx, monitor.ETHKeyAddress, order.To, order.Value)
 
 	return tx, nil
 }
@@ -658,11 +654,12 @@ func (monitor *Monitor) updateSendOrderOutTxStatus(tx string) error {
 
 	if err != nil {
 		monitor.ErrorF("update send orders out_tx status error :%s,out_tx:%s", err.Error(), tx)
+		return err
 	}
 
 	monitor.InfoF("update send orders out_tx status out_tx: %s update:%d", tx, update)
 
-	return err
+	return nil
 }
 
 func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64) error {
@@ -843,7 +840,7 @@ func (monitor *Monitor) EthSendMoniter() {
 func (monitor *Monitor) waitEthTx(tx string) bool {
 	timeOut := time.After(time.Minute * 30)
 
-	monitor.DebugF("waitEthTx:%x", tx)
+	monitor.DebugF("waitEthTx:%s", tx)
 
 	tick := time.NewTicker(time.Second * 60)
 
