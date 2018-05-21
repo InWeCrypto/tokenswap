@@ -631,7 +631,7 @@ func (monitor *Monitor) insertSendOrder(order *Order, ty int32) error {
 
 	affected, err := monitor.tokenswapdb.InsertOne(sendOrder)
 	if err != nil {
-		monitor.ErrorF("insert new send order err: %s, %d", err, order.ID)
+		monitor.ErrorF("insert new send order err: %s, %d", err.Error(), order.ID)
 	}
 
 	monitor.InfoF("insert new send order:%d,affected:%d", order.ID, affected)
