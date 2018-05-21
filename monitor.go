@@ -677,10 +677,10 @@ func (monitor *Monitor) addSendOrderOutTx(id int64, tx string, status int64) err
 }
 
 func (monitor *Monitor) updateEthSendOrderRetry(id int64, retry int32) error {
-	order := &SendOrder{ID: id, Retry: retry}
+	order := &SendOrder{ID: id, Retry: retry, Status: 0}
 
-	update, err := monitor.tokenswapdb.Where(`status = 0 and i_d = ?`, id).
-		Cols("retry", "nonce").Update(order)
+	update, err := monitor.tokenswapdb.Where(`status = 2 and i_d = ?`, id).
+		Cols("retry", "nonce", "status").Update(order)
 
 	if err != nil {
 		monitor.ErrorF("update send orders retry error :%s", err.Error())
@@ -816,6 +816,8 @@ func (monitor *Monitor) EthSendMoniter() {
 								monitor.ErrorF(" update send NEO log error :%s ", err.Error())
 							}
 
+							monitor.addSendOrderOutTx(v.ID, tx, 2)
+
 							if !monitor.waitEthTx(tx) {
 								monitor.DebugF("waitEthTx pending time out :%x", tx)
 
@@ -824,8 +826,6 @@ func (monitor *Monitor) EthSendMoniter() {
 
 								continue
 							}
-
-							monitor.addSendOrderOutTx(v.ID, tx, 2)
 
 							sendSuccess = true
 							break
