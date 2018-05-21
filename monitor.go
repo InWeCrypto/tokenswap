@@ -802,12 +802,13 @@ func (monitor *Monitor) EthSendMoniter() {
 						order.TX = v.OrderTx
 						order.Retry = v.Retry
 
+						sendSuccess := false
 						for {
 
 							tx, err := monitor.sendETH(order)
 							if err != nil {
 								monitor.ErrorF(" send ETH error :%s To:%s, value:%s", err.Error(), v.To, v.Value)
-								continue
+								break
 							}
 
 							monitor.addSendOrderOutTx(v.ID, tx, 2)
@@ -821,15 +822,19 @@ func (monitor *Monitor) EthSendMoniter() {
 								continue
 							}
 
+							sendSuccess = true
 							break
+
 						}
 
-						err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
-						if err != nil {
-							monitor.ErrorF(" update send NEO log error :%s ", err.Error())
-						}
+						if sendSuccess {
+							err = monitor.insertLogAndUpdate(nil, order, "tax_cost", "send_value")
+							if err != nil {
+								monitor.ErrorF(" update send NEO log error :%s ", err.Error())
+							}
 
-						balance.Sub(balance, bigAmount)
+							balance.Sub(balance, bigAmount)
+						}
 					}
 				}
 			}
