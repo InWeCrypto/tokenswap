@@ -811,8 +811,6 @@ func (monitor *Monitor) EthSendMoniter() {
 								break
 							}
 
-							monitor.addSendOrderOutTx(v.ID, tx, 2)
-
 							if !monitor.waitEthTx(tx) {
 								monitor.DebugF("waitEthTx pending time out :%x", tx)
 
@@ -821,6 +819,8 @@ func (monitor *Monitor) EthSendMoniter() {
 
 								continue
 							}
+
+							monitor.addSendOrderOutTx(v.ID, tx, 2)
 
 							sendSuccess = true
 							break
