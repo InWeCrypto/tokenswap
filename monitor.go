@@ -184,7 +184,7 @@ func (monitor *Monitor) neoMonitor() {
 func (monitor *Monitor) Run() {
 	go monitor.ethMonitor()
 	go monitor.neoMonitor()
-	go monitor.NeoSendMoniter()
+	//go monitor.NeoSendMoniter()
 	go monitor.EthSendMoniter()
 }
 
