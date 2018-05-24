@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -556,7 +557,7 @@ func (monitor *Monitor) sendETH(order *Order) (string, error) {
 		if order.Retry > 10 {
 			order.Retry = 10
 		}
-		gasPrice = ethgo.NewValue(big.NewFloat(float64(20)*float64(order.Retry+10)/float64(10)), ethgo.Shannon)
+		gasPrice = ethgo.NewValue(big.NewFloat(float64(20)*math.Pow(1.1, float64(order.Retry))), ethgo.Shannon)
 	}
 
 	ethKey, err := readETHKeyStore(monitor.config, "eth.keystore", monitor.config.GetString("eth.keystorepassword", ""))
