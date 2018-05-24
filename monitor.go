@@ -553,6 +553,9 @@ func (monitor *Monitor) sendETH(order *Order) (string, error) {
 	}
 
 	if order.Retry > 0 {
+		if order.Retry > 10 {
+			order.Retry = 10
+		}
 		gasPrice = ethgo.NewValue(big.NewFloat(float64(20)*float64(order.Retry+10)/float64(10)), ethgo.Shannon)
 	}
 
